@@ -6,6 +6,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="SourcePos.fs" />
+    <Compile Include="SourceFilePos.fs" />
+    <Compile Include="ParserLib.fs" />
+    <Compile Include="Token.fs" />
+    <Compile Include="Ast.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 
