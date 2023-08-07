@@ -6,7 +6,7 @@ type Location = {
 }
 
 module Location =
-    let root = {
+    let origin = {
         Line = 0
         Column = 0
     }
@@ -92,6 +92,14 @@ type ParseResult<'C, 'T, 'E> = Result<ParseSuccess<'C, 'T>, ParseError<'C, 'E>>
 type Parser<'C, 'T, 'E> = ParserInput<'C> -> ParseResult<'C, 'T, 'E>
 
 module Parser =
+    let succeed (parsedValue: 'T) : Parser<'C, 'T, 'E> =
+        fun { Context = context; Target = target } ->
+            Ok {
+                Context = context
+                ParsedValue = parsedValue
+                Rest = target
+            }
+
     let map (mapping: 'T -> 'U) (parse: Parser<'C, 'T, 'E>) : Parser<'C, 'U, 'E> =
         fun parserInput ->
             parse parserInput
@@ -101,6 +109,23 @@ module Parser =
                     ParsedValue = mapping parseSuccess.ParsedValue
                     Rest = parseSuccess.Rest
                 })
+
+    let bind (binder: 'T -> Parser<'C, 'U, 'E>) (parse: Parser<'C, 'T, 'E>) : Parser<'C, 'U, 'E> =
+        fun parserInput ->
+            parse parserInput
+            |> Result.bind (fun parseSuccess ->
+                binder parseSuccess.ParsedValue {
+                    Context = parseSuccess.Context
+                    Target = parseSuccess.Rest
+                })
+
+    let getContext : Parser<'C, 'C, 'E> =
+        fun { Context = context; Target = target } ->
+            Ok {
+                Context = context
+                ParsedValue = context
+                Rest = target
+            }
 
     let optional (parse: Parser<'C, 'T, 'E>) : Parser<'C, Option<'T>, 'E> =
         fun { Context = context; Target = target } ->
@@ -117,6 +142,13 @@ module Parser =
                     ParsedValue = None
                     Rest = target
                 }
+
+type ParserBuilder() =
+    member _.Bind(parser: Parser<'C, 'T, 'E>, binder: 'T -> Parser<'C, 'U, 'E>) : Parser<'C, 'U, 'E> = Parser.bind binder parser
+    member _.Return(parsedValue: 'T) : Parser<'C, 'T, 'E> = Parser.succeed parsedValue
+    member _.ReturnFrom(parser: Parser<'C, 'T, 'E>) : Parser<'C, 'T, 'E> = parser
+
+let parser = ParserBuilder()
 
 type LineBreak = Crlf | Lf
 
@@ -160,12 +192,34 @@ let charParser (c : char) : Parser<LineBreak * Location, char, string> =
                 Rest = target[1..]
             }
 
+let withLocation (parse: Parser<LineBreak * Location, 'T, 'E>) : Parser<LineBreak * Location, Location * 'T, 'E> =
+    parser {
+        let! (_, location) = Parser.getContext
+        let! res = parse
+        return (location, res)
+    }
+
 let myParser =
     charParser 'd'
-    |> Parser.map string
+    |> Parser.bind (fun c ->
+        charParser 'e'
+        |> Parser.map (fun c' -> $"%c{c}%c{c'}")
+        |> withLocation)
     |> Parser.optional
 
-myParser { Context = (Lf, Location.root); Target = "def" }
+myParser { Context = (Lf, Location.origin); Target = "def" }
+|> printfn "%A"
+
+let myParser2 =
+    parser {
+        let! c = charParser 'd'
+        let! (_, location) = Parser.getContext
+        let! c' = charParser 'e'
+        return (location, $"%c{c}%c{c'}")
+    }
+    |> Parser.optional
+
+myParser2 { Context = (Lf, Location.origin); Target = "def" }
 |> printfn "%A"
 
 let compileExpression (expression: Expression) =
@@ -179,14 +233,14 @@ let compileStatement (statement: Statement) =
         $"const %s{identifier.Raw} = %s{compileExpression(expression)};\n"
 
 let statement = VariableDeclaration {
-    LetKeyword = { Location = Location.root }
+    LetKeyword = { Location = Location.origin }
     Identifier = {
-        Location = Location.root
+        Location = Location.origin
         Raw = "foo"
     }
-    Equal = { Location = Location.root }
+    Equal = { Location = Location.origin }
     Expression = I32Literal {
-        Location = Location.root
+        Location = Location.origin
         Value = 42
     }
 }
