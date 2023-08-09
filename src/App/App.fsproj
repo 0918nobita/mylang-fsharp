@@ -6,9 +6,19 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="Reader.fsi" />
+    <Compile Include="Reader.fs" />
+
     <Compile Include="SourcePos.fs" />
-    <Compile Include="SourceFilePos.fs" />
-    <Compile Include="ParserLib.fs" />
+
+    <Compile Include="SourceFile.fsi" />
+    <Compile Include="SourceFile.fs" />
+
+    <Compile Include="SourceFileStream.fs" />
+
+    <Compile Include="ParserCombinator.fsi" />
+    <Compile Include="ParserCombinator.fs" />
+
     <Compile Include="Token.fs" />
     <Compile Include="Ast.fs" />
     <Compile Include="Program.fs" />

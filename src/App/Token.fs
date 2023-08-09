@@ -1,23 +1,16 @@
 module Token
 
-open SourceFilePos
+open SourcePos
 
 /// `let`
-type LetKeyword = {
-    SourceFilePos: SourceFilePos
-}
+type LetKeyword = { SourceFilePos: SourcePos }
 
-type Identifier = {
-    SourceFilePos: SourceFilePos
-    Raw: string
-}
+type Identifier =
+    { SourceFilePos: SourcePos
+      Raw: string }
 
 /// `=`
-type Equal = {
-    SourceFilePos: SourceFilePos
-}
+type Equal = { SourceFilePos: SourcePos }
 
-type I32Literal = {
-    SourceFilePos: SourceFilePos
-    Value: int
-}
+type I32Literal =
+    { SourceFilePos: SourcePos; Value: int }
