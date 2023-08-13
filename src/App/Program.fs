@@ -4,29 +4,14 @@ open SourceFile
 open SourceFileStream
 open ParserCombinator
 
-let src = SourceFile.fromString "Hello,\nworld!" |> SourceFileStream
+let src = SourceFile.fromString "01013" |> SourceFileStream
 
-let hParser =
-    parser {
-        let! c = Parser.pchar 'H'
-        printfn "hParser executed"
-        return c
-    }
+let zeroParser = Parser.pchar '0'
 
-let myParser1 =
-    parser {
-        let! firstChar = hParser
-        let! secondChar = Parser.pchar 'i'
-        return $"%c{firstChar}%c{secondChar}"
-    }
+let oneParser = Parser.pchar '1'
 
-let myParser2 =
-    parser {
-        let! firstChar = hParser
-        let! secondChar = Parser.pchar 'e'
-        return $"%c{firstChar}%c{secondChar}"
-    }
+let zeroOrOneParser = zeroParser |> Parser.alt oneParser
 
-let myParser3 = myParser1 |> Parser.alt myParser2
+let myParser = Parser.many zeroOrOneParser
 
-Parser.run src myParser3 |> printfn "%A"
+Parser.run src myParser |> printfn "%A"

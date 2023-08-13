@@ -18,6 +18,8 @@ module Parser =
 
     val alt: Parser<'T, 'E> -> Parser<'T, 'E> -> Parser<'T, 'E>
 
+    val many: Parser<'T, 'E> -> Parser<'T list, unit>
+
     val pchar: char -> Parser<char, string>
 
 [<Class>]

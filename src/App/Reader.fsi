@@ -17,10 +17,20 @@ module Reader =
 
 [<Class>]
 type ReaderBuilder =
+    member Bind: Reader<'Env, 'T> * ('T -> Reader<'Env, 'U>) -> Reader<'Env, 'U>
+
+    member Combine: Reader<'Env, unit> * (unit -> Reader<'Env, 'T>) -> Reader<'Env, 'T>
+
+    member Delay: (unit -> Reader<'Env, 'T>) -> (unit -> Reader<'Env, 'T>)
+
     member Return: 'T -> Reader<'Env, 'T>
 
     member ReturnFrom: Reader<'Env, 'T> -> Reader<'Env, 'T>
 
-    member Bind: Reader<'Env, 'T> * ('T -> Reader<'Env, 'U>) -> Reader<'Env, 'U>
+    member Run: (unit -> Reader<'Env, 'T>) -> Reader<'Env, 'T>
+
+    member While: (unit -> bool) * (unit -> Reader<'Env, unit>) -> Reader<'Env, unit>
+
+    member Zero: unit -> Reader<'Env, unit>
 
 val reader: ReaderBuilder

@@ -61,6 +61,29 @@ module Parser =
             | Error _ -> return! succeedingParser
         }
 
+    let many (Parser parse: Parser<'T, 'E>) : Parser<'T list, unit> =
+        make
+        <| reader {
+            let! (stream, index) = Reader.ask
+
+            let mutable results: 'T list = []
+
+            let mutable currentIndex = index
+
+            let mutable shouldContinue = true
+
+            while shouldContinue do
+                let! result = parse |> Reader.local (fun _ -> (stream, currentIndex))
+
+                match result with
+                | Ok(parsedValue, newIndex) ->
+                    results <- parsedValue :: results
+                    currentIndex <- newIndex
+                | Error _ -> shouldContinue <- false
+
+            return Ok(List.rev results, currentIndex)
+        }
+
     let pchar (c: char) : Parser<char, string> =
         make
         <| reader {
