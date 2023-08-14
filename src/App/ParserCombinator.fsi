@@ -20,6 +20,8 @@ module Parser =
 
     val many: Parser<'T, 'E> -> Parser<'T list, unit>
 
+    val some: Parser<'T, 'E> -> Parser<'T * 'T list, 'E>
+
 [<Class>]
 type ParserBuilder =
     member Return: 'T -> Parser<'T, 'E>

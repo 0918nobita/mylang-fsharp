@@ -42,9 +42,7 @@ module Parser =
     let bind (binder: 'T -> Parser<'U, 'E>) (Parser parse: Parser<'T, 'E>) : Parser<'U, 'E> =
         make
         <| reader {
-            let! result = parse
-
-            match result with
+            match! parse with
             | Ok(parsedValue, newIndex) ->
                 let (Parser parse') = binder parsedValue
                 return! parse' |> Reader.local (fun (stream, _) -> (stream, newIndex))
@@ -54,10 +52,8 @@ module Parser =
     let alt (Parser succeedingParser: Parser<'T, 'E>) (Parser precedingParser: Parser<'T, 'E>) : Parser<'T, 'E> =
         make
         <| reader {
-            let! result = precedingParser
-
-            match result with
-            | Ok _ -> return result
+            match! precedingParser with
+            | Ok success -> return Ok success
             | Error _ -> return! succeedingParser
         }
 
@@ -73,15 +69,37 @@ module Parser =
             let mutable shouldContinue = true
 
             while shouldContinue do
-                let! result = parse |> Reader.local (fun _ -> (stream, currentIndex))
-
-                match result with
+                match! parse |> Reader.local (fun _ -> (stream, currentIndex)) with
                 | Ok(parsedValue, newIndex) ->
                     results <- parsedValue :: results
                     currentIndex <- newIndex
                 | Error _ -> shouldContinue <- false
 
             return Ok(List.rev results, currentIndex)
+        }
+
+    let some (Parser parse: Parser<'T, 'E>) : Parser<'T * 'T list, 'E> =
+        make
+        <| reader {
+            let! stream = Reader.asks fst
+
+            match! parse with
+            | Ok(head, newIndex) ->
+                let mutable tail: 'T list = []
+
+                let mutable currentIndex = newIndex
+
+                let mutable shouldContinue = true
+
+                while shouldContinue do
+                    match! parse |> Reader.local (fun _ -> (stream, currentIndex)) with
+                    | Ok(parsedValue, newIndex') ->
+                        tail <- parsedValue :: tail
+                        currentIndex <- newIndex'
+                    | Error _ -> shouldContinue <- false
+
+                return Ok((head, List.rev tail), currentIndex)
+            | Error err -> return Error err
         }
 
 type ParserBuilder() =
