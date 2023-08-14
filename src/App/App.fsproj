@@ -19,6 +19,8 @@
     <Compile Include="ParserCombinator.fsi" />
     <Compile Include="ParserCombinator.fs" />
 
+    <Compile Include="BasicParser.fs" />
+
     <Compile Include="Token.fs" />
     <Compile Include="Ast.fs" />
     <Compile Include="Program.fs" />
