@@ -5,10 +5,8 @@ open ParserCombinator
 
 module P = BasicParser
 
-let src = SourceFile.fromString "01013" |> SourceFileStream
+let src = SourceFile.fromString "010010011" |> SourceFileStream
 
-let zeroOrOneParser = P.satisfy (fun c -> c = '0' || c = '1')
-
-let myParser = Parser.some zeroOrOneParser
+let myParser = P.pstring "010" |> Parser.some
 
 Parser.run src myParser |> printfn "%A"
