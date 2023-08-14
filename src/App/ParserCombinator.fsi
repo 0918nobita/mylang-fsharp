@@ -6,9 +6,9 @@ open SourceFileStream
 type Parser<'T, 'Error>
 
 module Parser =
-    val make: Reader<SourceFileStream * int, Result<'T * int, 'E>> -> Parser<'T, 'E>
+    val make: Reader<ISourceFileStream * int, Result<'T * int, 'E>> -> Parser<'T, 'E>
 
-    val run: SourceFileStream -> Parser<'T, 'E> -> Result<'T * int, 'E>
+    val run: ISourceFileStream -> Parser<'T, 'E> -> Result<'T * int, 'E>
 
     val succeed: 'T -> Parser<'T, 'E>
 

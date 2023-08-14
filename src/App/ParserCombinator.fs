@@ -5,10 +5,10 @@ open System.Collections.Generic
 open Reader
 open SourceFileStream
 
-type Parser<'T, 'Error> = private Parser of Reader<SourceFileStream * int, Result<'T * int, 'Error>>
+type Parser<'T, 'Error> = private Parser of Reader<ISourceFileStream * int, Result<'T * int, 'Error>>
 
 module Parser =
-    let make (parse: Reader<SourceFileStream * int, Result<'T * int, 'E>>) : Parser<'T, 'E> =
+    let make (parse: Reader<ISourceFileStream * int, Result<'T * int, 'E>>) : Parser<'T, 'E> =
         let memo = new Dictionary<int, Result<'T * int, 'E>>()
 
         Parser
@@ -23,7 +23,7 @@ module Parser =
                 return result
         }
 
-    let run (stream: SourceFileStream) (Parser parse: Parser<'T, 'E>) = Reader.run (stream, 0) parse
+    let run (stream: ISourceFileStream) (Parser parse: Parser<'T, 'E>) = Reader.run (stream, 0) parse
 
     let succeed (parsedValue: 'T) : Parser<'T, 'E> =
         make

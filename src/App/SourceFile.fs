@@ -1,6 +1,7 @@
 module SourceFile
 
 open SourcePos
+open SourceFileStream
 
 type Line = { Content: char[]; CursorIndex: int }
 
@@ -35,3 +36,20 @@ module SourceFile =
             let column = cursorIndex - line.CursorIndex - 1
             { Line = lineNum; Column = column })
         |> Option.defaultValue { Line = 0; Column = cursorIndex }
+
+type SourceFileStream(sourceFile: SourceFile) =
+    let mutable currentIndex = 0
+
+    interface ISourceFileStream with
+        member _.Next() =
+            currentIndex <- currentIndex + 1
+            SourceFile.tryGetChar (SourceFile.position currentIndex sourceFile) sourceFile
+
+        member _.Peek() =
+            SourceFile.tryGetChar (SourceFile.position (currentIndex + 1) sourceFile) sourceFile
+
+        member _.Seek(position: int) = currentIndex <- position
+
+        member _.Index = currentIndex
+
+        member _.Position = SourceFile.position currentIndex sourceFile

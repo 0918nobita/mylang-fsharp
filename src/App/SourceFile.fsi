@@ -1,6 +1,7 @@
 module SourceFile
 
 open SourcePos
+open SourceFileStream
 
 type SourceFile
 
@@ -14,3 +15,8 @@ module SourceFile =
 
     /// `position n sourceFile` は `sourceFile` の １行目の行頭から数えて `n` 文字目に来る文字の位置を返す
     val position: int -> SourceFile -> SourcePos
+
+type SourceFileStream =
+    new: SourceFile -> SourceFileStream
+
+    interface ISourceFileStream

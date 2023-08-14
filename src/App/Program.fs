@@ -1,7 +1,6 @@
 ﻿module Program
 
 open SourceFile
-open SourceFileStream
 open ParserCombinator
 
 let src = SourceFile.fromString "01013" |> SourceFileStream

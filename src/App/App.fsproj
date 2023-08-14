@@ -11,10 +11,10 @@
 
     <Compile Include="SourcePos.fs" />
 
+    <Compile Include="SourceFileStream.fs" />
+
     <Compile Include="SourceFile.fsi" />
     <Compile Include="SourceFile.fs" />
-
-    <Compile Include="SourceFileStream.fs" />
 
     <Compile Include="ParserCombinator.fsi" />
     <Compile Include="ParserCombinator.fs" />
