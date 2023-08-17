@@ -10,7 +10,7 @@ module Parser =
 
     val run: ISourceFileStream -> Parser<'T, 'E> -> Result<'T * int, 'E>
 
-    val succeed: 'T -> Parser<'T, 'E>
+    val inline succeed: 'T -> Parser<'T, 'E>
 
     val map: ('T -> 'U) -> Parser<'T, 'E> -> Parser<'U, 'E>
 
@@ -24,10 +24,10 @@ module Parser =
 
 [<Class>]
 type ParserBuilder =
-    member Return: 'T -> Parser<'T, 'E>
+    member inline Return: 'T -> Parser<'T, 'E>
 
-    member ReturnFrom: Parser<'T, 'E> -> Parser<'T, 'E>
+    member inline ReturnFrom: Parser<'T, 'E> -> Parser<'T, 'E>
 
-    member Bind: Parser<'T, 'E> * ('T -> Parser<'U, 'E>) -> Parser<'U, 'E>
+    member inline Bind: Parser<'T, 'E> * ('T -> Parser<'U, 'E>) -> Parser<'U, 'E>
 
 val parser: ParserBuilder

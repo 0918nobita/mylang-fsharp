@@ -17,17 +17,17 @@ module Reader =
 
 [<Class>]
 type ReaderBuilder =
-    member Bind: Reader<'Env, 'T> * ('T -> Reader<'Env, 'U>) -> Reader<'Env, 'U>
+    member inline Bind: Reader<'Env, 'T> * ('T -> Reader<'Env, 'U>) -> Reader<'Env, 'U>
 
-    member Combine: Reader<'Env, unit> * (unit -> Reader<'Env, 'T>) -> Reader<'Env, 'T>
+    member inline Combine: Reader<'Env, unit> * (unit -> Reader<'Env, 'T>) -> Reader<'Env, 'T>
 
-    member Delay: (unit -> Reader<'Env, 'T>) -> (unit -> Reader<'Env, 'T>)
+    member inline Delay: (unit -> Reader<'Env, 'T>) -> (unit -> Reader<'Env, 'T>)
 
     member Return: 'T -> Reader<'Env, 'T>
 
-    member ReturnFrom: Reader<'Env, 'T> -> Reader<'Env, 'T>
+    member inline ReturnFrom: Reader<'Env, 'T> -> Reader<'Env, 'T>
 
-    member Run: (unit -> Reader<'Env, 'T>) -> Reader<'Env, 'T>
+    member inline Run: (unit -> Reader<'Env, 'T>) -> Reader<'Env, 'T>
 
     member While: (unit -> bool) * (unit -> Reader<'Env, unit>) -> Reader<'Env, unit>
 

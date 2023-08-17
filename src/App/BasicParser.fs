@@ -8,7 +8,7 @@ type CharParserError =
     | UnexpectedChar of char
     | UnexpectedEndOfInput
 
-let pchar (c: char) : Parser<char, CharParserError> =
+let inline pchar (c: char) : Parser<char, CharParserError> =
     Parser.make
     <| reader {
         let! (stream, index) = Reader.ask
@@ -26,7 +26,7 @@ type SatisfyParserError =
     | UnexpectedChar of char
     | UnexpectedEndOfInput
 
-let satisfy (guard: char -> bool) : Parser<char, SatisfyParserError> =
+let inline satisfy ([<InlineIfLambda>] guard: char -> bool) : Parser<char, SatisfyParserError> =
     Parser.make
     <| reader {
         let! (stream, index) = Reader.ask
@@ -44,7 +44,7 @@ type StringParserError =
     | UnexpectedChar of char
     | UnexpectedEndOfInput
 
-let pstring (str: string) : Parser<string, StringParserError> =
+let inline pstring (str: string) : Parser<string, StringParserError> =
     Parser.make
     <| reader {
         let! (stream, index) = Reader.ask

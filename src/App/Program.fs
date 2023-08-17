@@ -7,6 +7,11 @@ module P = BasicParser
 
 let src = SourceFile.fromString "010010011" |> SourceFileStream
 
-let myParser = P.pstring "010" |> Parser.some
+let myParser =
+    parser {
+        let! hoge = P.pstring "010" |> Parser.some
+        let! fuga = P.pstring "011"
+        return (fst hoge) :: ((snd hoge) @ [ fuga ])
+    }
 
 Parser.run src myParser |> printfn "%A"

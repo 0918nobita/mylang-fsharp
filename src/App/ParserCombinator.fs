@@ -25,7 +25,7 @@ module Parser =
 
     let run (stream: ISourceFileStream) (Parser parse: Parser<'T, 'E>) = Reader.run (stream, 0) parse
 
-    let succeed (parsedValue: 'T) : Parser<'T, 'E> =
+    let inline succeed (parsedValue: 'T) : Parser<'T, 'E> =
         make
         <| reader {
             let! index = Reader.asks snd
@@ -103,10 +103,11 @@ module Parser =
         }
 
 type ParserBuilder() =
-    member _.Return(parsedValue: 'T) : Parser<'T, 'E> = Parser.succeed parsedValue
+    member inline _.Return(parsedValue: 'T) : Parser<'T, 'E> = Parser.succeed parsedValue
 
-    member _.ReturnFrom(parser: Parser<'T, 'E>) : Parser<'T, 'E> = parser
+    member inline _.ReturnFrom(parser: Parser<'T, 'E>) : Parser<'T, 'E> = parser
 
-    member _.Bind(parser: Parser<'T, 'E>, binder: 'T -> Parser<'U, 'E>) : Parser<'U, 'E> = Parser.bind binder parser
+    member inline _.Bind(parser: Parser<'T, 'E>, [<InlineIfLambda>] binder: 'T -> Parser<'U, 'E>) : Parser<'U, 'E> =
+        Parser.bind binder parser
 
 let parser = ParserBuilder()
