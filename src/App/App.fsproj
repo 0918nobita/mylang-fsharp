@@ -8,9 +8,7 @@
   <ItemGroup>
     <Compile Include="Reader.fsi" />
     <Compile Include="Reader.fs" />
-
     <Compile Include="SourcePos.fs" />
-
     <Compile Include="SourceFileStream.fs" />
 
     <Compile Include="SourceFile.fsi" />
@@ -20,9 +18,6 @@
     <Compile Include="ParserCombinator.fs" />
 
     <Compile Include="BasicParser.fs" />
-
-    <Compile Include="Token.fs" />
-    <Compile Include="Ast.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 

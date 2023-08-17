@@ -1,6 +1,7 @@
 module BasicParser
 
 open Reader
+open SourcePos
 open ParserCombinator
 
 [<RequireQualifiedAccess>]
@@ -8,7 +9,7 @@ type CharParserError =
     | UnexpectedChar of char
     | UnexpectedEndOfInput
 
-let inline pchar (c: char) : Parser<char, CharParserError> =
+let inline pchar (c: char) : Parser<char * SourcePos, CharParserError> =
     Parser.make
     <| reader {
         let! (stream, index) = Reader.ask
@@ -16,7 +17,7 @@ let inline pchar (c: char) : Parser<char, CharParserError> =
 
         return
             match stream.Next() with
-            | Some c' when c = c' -> Ok(c, stream.Index)
+            | Some c' when c = c' -> Ok((c, stream.Position index), stream.Index)
             | Some c' -> Error(CharParserError.UnexpectedChar c')
             | None -> Error CharParserError.UnexpectedEndOfInput
     }
@@ -26,7 +27,7 @@ type SatisfyParserError =
     | UnexpectedChar of char
     | UnexpectedEndOfInput
 
-let inline satisfy ([<InlineIfLambda>] guard: char -> bool) : Parser<char, SatisfyParserError> =
+let inline satisfy ([<InlineIfLambda>] guard: char -> bool) : Parser<char * SourcePos, SatisfyParserError> =
     Parser.make
     <| reader {
         let! (stream, index) = Reader.ask
@@ -34,7 +35,7 @@ let inline satisfy ([<InlineIfLambda>] guard: char -> bool) : Parser<char, Satis
 
         return
             match stream.Next() with
-            | Some c when guard c -> Ok(c, stream.Index)
+            | Some c when guard c -> Ok((c, stream.Position index), stream.Index)
             | Some c -> Error(SatisfyParserError.UnexpectedChar c)
             | None -> Error SatisfyParserError.UnexpectedEndOfInput
     }
@@ -44,7 +45,7 @@ type StringParserError =
     | UnexpectedChar of char
     | UnexpectedEndOfInput
 
-let inline pstring (str: string) : Parser<string, StringParserError> =
+let inline pstring (str: string) : Parser<string * SourcePos, StringParserError> =
     Parser.make
     <| reader {
         let! (stream, index) = Reader.ask
@@ -69,5 +70,5 @@ let inline pstring (str: string) : Parser<string, StringParserError> =
         return
             match error with
             | Some err -> Error err
-            | None -> Ok(str, stream.Index)
+            | None -> Ok((str, stream.Position index), stream.Index)
     }

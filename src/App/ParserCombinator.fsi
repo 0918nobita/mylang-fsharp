@@ -14,11 +14,13 @@ module Parser =
 
     val map: ('T -> 'U) -> Parser<'T, 'E> -> Parser<'U, 'E>
 
+    val mapError: ('E1 -> 'E2) -> Parser<'T, 'E1> -> Parser<'T, 'E2>
+
     val bind: ('T -> Parser<'U, 'E>) -> Parser<'T, 'E> -> Parser<'U, 'E>
 
     val alt: Parser<'T, 'E> -> Parser<'T, 'E> -> Parser<'T, 'E>
 
-    val many: Parser<'T, 'E> -> Parser<'T list, unit>
+    val many: Parser<'T, 'E1> -> Parser<'T list, 'E2>
 
     val some: Parser<'T, 'E> -> Parser<'T * 'T list, 'E>
 

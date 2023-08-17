@@ -39,6 +39,13 @@ module Parser =
             return result |> Result.map (fun (parsedValue, index) -> (mapping parsedValue, index))
         }
 
+    let mapError (mapping: 'E1 -> 'E2) (Parser parse: Parser<'T, 'E1>) : Parser<'T, 'E2> =
+        make
+        <| reader {
+            let! result = parse
+            return result |> Result.mapError mapping
+        }
+
     let bind (binder: 'T -> Parser<'U, 'E>) (Parser parse: Parser<'T, 'E>) : Parser<'U, 'E> =
         make
         <| reader {
@@ -57,7 +64,7 @@ module Parser =
             | Error _ -> return! succeedingParser
         }
 
-    let many (Parser parse: Parser<'T, 'E>) : Parser<'T list, unit> =
+    let many (Parser parse: Parser<'T, 'E1>) : Parser<'T list, 'E2> =
         make
         <| reader {
             let! (stream, index) = Reader.ask

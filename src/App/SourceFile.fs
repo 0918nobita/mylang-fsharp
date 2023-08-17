@@ -33,7 +33,7 @@ module SourceFile =
         |> Array.indexed
         |> Array.tryFindBack (fun (_, line) -> line.CursorIndex < cursorIndex)
         |> Option.map (fun (lineNum, line) ->
-            let column = cursorIndex - line.CursorIndex - 1
+            let column = cursorIndex - line.CursorIndex
             { Line = lineNum; Column = column })
         |> Option.defaultValue { Line = 0; Column = cursorIndex }
 
@@ -41,15 +41,18 @@ type SourceFileStream(sourceFile: SourceFile) =
     let mutable currentIndex = 0
 
     interface ISourceFileStream with
-        member _.Next() =
-            currentIndex <- currentIndex + 1
-            SourceFile.tryGetChar (SourceFile.position currentIndex sourceFile) sourceFile
+        member _.Next() : Option<char> =
+            let cOpt =
+                SourceFile.tryGetChar (SourceFile.position currentIndex sourceFile) sourceFile
 
-        member _.Peek() =
+            currentIndex <- currentIndex + 1
+            cOpt
+
+        member _.Peek() : Option<char> =
             SourceFile.tryGetChar (SourceFile.position (currentIndex + 1) sourceFile) sourceFile
 
-        member _.Seek(position: int) = currentIndex <- position
+        member _.Seek(position: int) : unit = currentIndex <- position
 
-        member _.Index = currentIndex
+        member _.Position(index: int) : SourcePos = SourceFile.position index sourceFile
 
-        member _.Position = SourceFile.position currentIndex sourceFile
+        member _.Index: int = currentIndex
