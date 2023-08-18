@@ -64,6 +64,16 @@ module Parser =
             | Error _ -> return! succeedingParser
         }
 
+    let recover (recovery: 'E1 -> Parser<'T, 'E2>) (Parser parse: Parser<'T, 'E1>) : Parser<'T, 'E2> =
+        make
+        <| reader {
+            match! parse with
+            | Ok success -> return Ok success
+            | Error err ->
+                let (Parser parse') = recovery err
+                return! parse'
+        }
+
     let many (Parser parse: Parser<'T, 'E1>) : Parser<'T list, 'E2> =
         make
         <| reader {

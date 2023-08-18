@@ -43,7 +43,7 @@ let exprParser: Parser<Expression, unit> =
     (identParser |> Parser.map Identifier)
     |> Parser.alt (intLiteralParser |> Parser.map IntLiteral)
 
-let myParser =
+let letStmtParser =
     parser {
         let! _ = P.pstring "let" |> Parser.mapError (fun _ -> LetStmtLetNotFound)
 
@@ -60,7 +60,12 @@ let myParser =
         return (ident, init)
     }
 
-let sourceFile = SourceFile.fromString "let foo = 42"
+let myParser: Parser<Option<Identifier * Expression> * SyntaxError list, unit> =
+    letStmtParser
+    |> Parser.map (fun letStmt -> (Some letStmt, []))
+    |> Parser.recover (fun err -> Parser.succeed (None, [ err ]))
+
+let sourceFile = SourceFile.fromString "let"
 
 let stream = SourceFileStream sourceFile
 

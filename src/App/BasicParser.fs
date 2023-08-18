@@ -65,7 +65,9 @@ let inline pstring (str: string) : Parser<string * SourcePos, StringParserError>
             | Some c ->
                 error <- Some(StringParserError.UnexpectedChar c)
                 shouldContinue <- false
-            | None -> shouldContinue <- false
+            | None ->
+                error <- Some(StringParserError.UnexpectedEndOfInput)
+                shouldContinue <- false
 
         return
             match error with

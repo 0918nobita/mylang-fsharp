@@ -20,6 +20,8 @@ module Parser =
 
     val alt: Parser<'T, 'E> -> Parser<'T, 'E> -> Parser<'T, 'E>
 
+    val recover: ('E1 -> Parser<'T, 'E2>) -> Parser<'T, 'E1> -> Parser<'T, 'E2>
+
     val many: Parser<'T, 'E1> -> Parser<'T list, 'E2>
 
     val some: Parser<'T, 'E> -> Parser<'T * 'T list, 'E>
