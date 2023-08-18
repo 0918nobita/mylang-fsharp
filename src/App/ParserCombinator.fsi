@@ -18,7 +18,7 @@ module Parser =
 
     val bind: ('T -> Parser<'U, 'E>) -> Parser<'T, 'E> -> Parser<'U, 'E>
 
-    val alt: Parser<'T, 'E> -> Parser<'T, 'E> -> Parser<'T, 'E>
+    val alt: Parser<'T, 'E2> -> Parser<'T, 'E1> -> Parser<'T, 'E2>
 
     val recover: ('E1 -> Parser<'T, 'E2>) -> Parser<'T, 'E1> -> Parser<'T, 'E2>
 

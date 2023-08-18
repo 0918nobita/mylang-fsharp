@@ -56,7 +56,7 @@ module Parser =
             | Error err -> return Error err
         }
 
-    let alt (Parser succeedingParser: Parser<'T, 'E>) (Parser precedingParser: Parser<'T, 'E>) : Parser<'T, 'E> =
+    let alt (Parser succeedingParser: Parser<'T, 'E2>) (Parser precedingParser: Parser<'T, 'E1>) : Parser<'T, 'E2> =
         make
         <| reader {
             match! precedingParser with
