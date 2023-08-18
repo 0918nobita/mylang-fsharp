@@ -13,11 +13,12 @@ let inline pchar (c: char) : Parser<char * SourcePos, CharParserError> =
     Parser.make
     <| reader {
         let! (stream, index) = Reader.ask
-        stream.Seek(index)
+
+        let pos = stream.Position index
 
         return
-            match stream.Next() with
-            | Some c' when c = c' -> Ok((c, stream.Position index), stream.Index)
+            match stream.TryGetChar pos with
+            | Some c' when c = c' -> Ok((c, pos), index + 1)
             | Some c' -> Error(CharParserError.UnexpectedChar c')
             | None -> Error CharParserError.UnexpectedEndOfInput
     }
@@ -31,11 +32,12 @@ let inline satisfy ([<InlineIfLambda>] guard: char -> bool) : Parser<char * Sour
     Parser.make
     <| reader {
         let! (stream, index) = Reader.ask
-        stream.Seek(index)
+
+        let pos = stream.Position index
 
         return
-            match stream.Next() with
-            | Some c when guard c -> Ok((c, stream.Position index), stream.Index)
+            match stream.TryGetChar pos with
+            | Some c when guard c -> Ok((c, pos), index + 1)
             | Some c -> Error(SatisfyParserError.UnexpectedChar c)
             | None -> Error SatisfyParserError.UnexpectedEndOfInput
     }
@@ -49,7 +51,6 @@ let inline pstring (str: string) : Parser<string * SourcePos, StringParserError>
     Parser.make
     <| reader {
         let! (stream, index) = Reader.ask
-        stream.Seek(index)
 
         let len = String.length str
 
@@ -60,17 +61,17 @@ let inline pstring (str: string) : Parser<string * SourcePos, StringParserError>
         let mutable strIndex = 0
 
         while shouldContinue && (strIndex < len) do
-            match stream.Next() with
+            match stream.TryGetChar(stream.Position(index + strIndex)) with
             | Some c when c = str.[strIndex] -> strIndex <- strIndex + 1
             | Some c ->
                 error <- Some(StringParserError.UnexpectedChar c)
                 shouldContinue <- false
             | None ->
-                error <- Some(StringParserError.UnexpectedEndOfInput)
+                error <- Some StringParserError.UnexpectedEndOfInput
                 shouldContinue <- false
 
         return
             match error with
             | Some err -> Error err
-            | None -> Ok((str, stream.Position index), stream.Index)
+            | None -> Ok((str, stream.Position index), index + len)
     }

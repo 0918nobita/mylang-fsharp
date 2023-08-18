@@ -1,14 +1,14 @@
 module ParserCombinator
 
 open Reader
-open SourceFileStream
+open ISourceFile
 
 type Parser<'T, 'Error>
 
 module Parser =
-    val make: Reader<ISourceFileStream * int, Result<'T * int, 'E>> -> Parser<'T, 'E>
+    val make: Reader<ISourceFile * int, Result<'T * int, 'E>> -> Parser<'T, 'E>
 
-    val run: ISourceFileStream -> Parser<'T, 'E> -> Result<'T * int, 'E>
+    val run: ISourceFile -> Parser<'T, 'E> -> Result<'T * int, 'E>
 
     val inline succeed: 'T -> Parser<'T, 'E>
 

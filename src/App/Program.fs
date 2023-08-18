@@ -65,7 +65,7 @@ let myParser: Parser<Option<Identifier * Expression> * SyntaxError list, unit> =
     |> Parser.map (fun letStmt -> (Some letStmt, []))
     |> Parser.recover (fun err -> Parser.succeed (None, [ err ]))
 
-let sourceFile = SourceFile.fromString "let"
+let sourceFile = SourceFile.fromString "let foo = 42"
 
 let stream = SourceFileStream sourceFile
 

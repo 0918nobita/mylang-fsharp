@@ -9,7 +9,7 @@
     <Compile Include="Reader.fsi" />
     <Compile Include="Reader.fs" />
     <Compile Include="SourcePos.fs" />
-    <Compile Include="SourceFileStream.fs" />
+    <Compile Include="ISourceFile.fs" />
 
     <Compile Include="SourceFile.fsi" />
     <Compile Include="SourceFile.fs" />

@@ -1,7 +1,7 @@
 module SourceFile
 
 open SourcePos
-open SourceFileStream
+open ISourceFile
 
 type SourceFile
 
@@ -19,4 +19,4 @@ module SourceFile =
 type SourceFileStream =
     new: SourceFile -> SourceFileStream
 
-    interface ISourceFileStream
+    interface ISourceFile
