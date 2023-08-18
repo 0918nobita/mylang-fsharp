@@ -3,6 +3,7 @@ module ParserCombinator
 open System.Collections.Generic
 
 open Reader
+open SourcePos
 open ISourceFile
 
 type Parser<'T, 'Error> = private Parser of Reader<ISourceFile * int, Result<'T * int, 'Error>>
@@ -117,6 +118,45 @@ module Parser =
 
                 return Ok((head, List.rev tail), currentIndex)
             | Error err -> return Error err
+        }
+
+    let endOfInput: Parser<unit, SourcePos> =
+        make
+        <| reader {
+            let! (stream, index) = Reader.ask
+
+            let pos = stream.Position index
+
+            match stream.TryGetChar pos with
+            | Some a -> return Error pos
+            | None -> return Ok((), index)
+        }
+
+    let skipTill (parser: Parser<'T, 'E>) : Parser<'T, SourcePos> =
+        let (Parser parse) =
+            (endOfInput |> map (fun () -> None)) |> alt (parser |> map Some)
+
+        make
+        <| reader {
+            let! (stream, index) = Reader.ask
+
+            let mutable result = Unchecked.defaultof<Result<'T * int, SourcePos>>
+
+            let mutable currentIndex = index
+
+            let mutable shouldContinue = true
+
+            while shouldContinue do
+                match! parse |> Reader.local (fun _ -> (stream, currentIndex)) with
+                | Ok(Some parsedValue, newIndex) ->
+                    result <- Ok(parsedValue, newIndex)
+                    shouldContinue <- false
+                | Ok(None, newIndex) ->
+                    result <- Error(stream.Position newIndex)
+                    shouldContinue <- false
+                | Error _ -> currentIndex <- currentIndex + 1
+
+            return result
         }
 
 type ParserBuilder() =

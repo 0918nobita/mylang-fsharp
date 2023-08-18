@@ -63,10 +63,13 @@ let letStmtParser =
 let myParser: Parser<Option<Identifier * Expression> * SyntaxError list, unit> =
     letStmtParser
     |> Parser.map (fun letStmt -> (Some letStmt, []))
-    |> Parser.recover (fun err -> Parser.succeed (None, [ err ]))
+    |> Parser.recover (fun err ->
+        Parser.skipTill (P.pchar ';')
+        |> Parser.map (fun _ -> (None, [ err ]))
+        |> Parser.mapError ignore)
 
-let sourceFile = SourceFile.fromString "let foo = 42"
+let sourceFile = SourceFile.fromString "let foo = ;\nlet bar = foo\n"
 
 let stream = SourceFileStream sourceFile
 
-Parser.run stream myParser |> printfn "%A"
+Parser.run stream myParser |> printfn "1) %A"

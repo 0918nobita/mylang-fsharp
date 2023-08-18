@@ -1,6 +1,7 @@
 module ParserCombinator
 
 open Reader
+open SourcePos
 open ISourceFile
 
 type Parser<'T, 'Error>
@@ -25,6 +26,10 @@ module Parser =
     val many: Parser<'T, 'E1> -> Parser<'T list, 'E2>
 
     val some: Parser<'T, 'E> -> Parser<'T * 'T list, 'E>
+
+    val endOfInput: Parser<unit, SourcePos>
+
+    val skipTill: Parser<'T, 'E> -> Parser<'T, SourcePos>
 
 [<Class>]
 type ParserBuilder =
