@@ -6,19 +6,11 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="Reader.fsi" />
-    <Compile Include="Reader.fs" />
-    <Compile Include="SourcePos.fs" />
-    <Compile Include="ISourceFile.fs" />
-
-    <Compile Include="SourceFile.fsi" />
-    <Compile Include="SourceFile.fs" />
-
-    <Compile Include="ParserCombinator.fsi" />
-    <Compile Include="ParserCombinator.fs" />
-
-    <Compile Include="BasicParser.fs" />
     <Compile Include="Program.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Parsec\Parsec.fsproj" />
   </ItemGroup>
 
 </Project>

@@ -7,6 +7,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{D9561CB9-AEB
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "App", "src\App\App.fsproj", "{A97FFFF0-35FA-42C2-A0E1-E0EAB5DEEB40}"
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Parsec", "src\Parsec\Parsec.fsproj", "{88C3AACE-4A45-4114-8F7C-7FAE8B8696D4}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -20,8 +22,13 @@ Global
 		{A97FFFF0-35FA-42C2-A0E1-E0EAB5DEEB40}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A97FFFF0-35FA-42C2-A0E1-E0EAB5DEEB40}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A97FFFF0-35FA-42C2-A0E1-E0EAB5DEEB40}.Release|Any CPU.Build.0 = Release|Any CPU
+		{88C3AACE-4A45-4114-8F7C-7FAE8B8696D4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{88C3AACE-4A45-4114-8F7C-7FAE8B8696D4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{88C3AACE-4A45-4114-8F7C-7FAE8B8696D4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{88C3AACE-4A45-4114-8F7C-7FAE8B8696D4}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{A97FFFF0-35FA-42C2-A0E1-E0EAB5DEEB40} = {D9561CB9-AEB3-48CD-97AF-4ECC2277D018}
+		{88C3AACE-4A45-4114-8F7C-7FAE8B8696D4} = {D9561CB9-AEB3-48CD-97AF-4ECC2277D018}
 	EndGlobalSection
 EndGlobal
