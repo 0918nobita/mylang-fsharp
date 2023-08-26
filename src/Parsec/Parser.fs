@@ -156,6 +156,27 @@ module Parser =
                     let (Parser parse') = recovery reason
                     parse' contextId (state, sourceFile, cursorIndex)
 
+    let withoutMovingCursor (Parser parser: Parser<_, 'State, 'T, 'E>) : Parser<Unmemorized, 'State, 'T, 'E> =
+        Parser
+        <| fun contextId ->
+            let parseFn = parser contextId
+
+            fun (prevState, sourceFile, cursorIndex) ->
+                parseFn (prevState, sourceFile, cursorIndex)
+                |> Result.map (fun (newState, { NextIndex = _; ParsedValue = parsedValue }) -> (newState, { NextIndex = cursorIndex; ParsedValue = parsedValue }))
+
+    let opt (Parser parse: Parser<_, 'State, 'T, 'E>) : Parser<Unmemorized, 'State, Option<'T>, _> =
+        Parser
+        <| fun contextId ->
+            let parseFn = parse contextId
+
+            fun (prevState, sourceFile, cursorIndex) ->
+                match parseFn (prevState, sourceFile, cursorIndex) with
+                | Ok (newState, { NextIndex = nextIndex; ParsedValue = parsedValue }) ->
+                    Ok (newState, { NextIndex = nextIndex; ParsedValue = Some parsedValue })
+                | Error _reason ->
+                    Ok (prevState, { NextIndex = cursorIndex; ParsedValue = None })
+
     /// 0回以上の繰り返し
     let many (Parser parse: Parser<_, 'State, 'T, _>) : Parser<Unmemorized, 'State, 'T list, _> =
         Parser
@@ -270,3 +291,18 @@ module Parser =
                     | Error _ -> currentIndex <- currentIndex + 1
 
                 result
+
+    let forwardRef<'MemorizedOrNot, 'State, 'T, 'E when 'MemorizedOrNot :> MemorizedOrNot>
+        ()
+        : Parser<'MemorizedOrNot, 'State, 'T, 'E> * (Parser<'MemorizedOrNot, 'State, 'T, 'E> ref) =
+        let dummy = Parser <| fun _contextId _input -> failwith "parser not initialized"
+
+        let r = ref dummy
+
+        let proxy =
+            Parser
+            <| fun contextId ->
+                let (Parser parse) = r.Value
+                parse contextId
+
+        (proxy, r)
