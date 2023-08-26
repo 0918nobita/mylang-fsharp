@@ -12,6 +12,11 @@ type CharParserError =
         {| Expected: char
            SourcePos: SourcePos |}
 
+    member inline this.SourcePos =
+        match this with
+        | UnexpectedChar payload -> payload.SourcePos
+        | UnexpectedEndOfInput payload -> payload.SourcePos
+
 /// 指定された1文字を受理して、その文字と位置を返すパーサ
 let inline pchar (c: char) : Parser<_, _, char * SourcePos, CharParserError> =
     Parser.make (fun (state, sourceFile, cursorIndex) ->
@@ -36,6 +41,11 @@ type SatisfyParserError =
     | UnexpectedChar of {| Found: char; SourcePos: SourcePos |}
     | UnexpectedEndOfInput of {| SourcePos: SourcePos |}
 
+    member inline this.SourcePos =
+        match this with
+        | UnexpectedChar payload -> payload.SourcePos
+        | UnexpectedEndOfInput payload -> payload.SourcePos
+
 let inline satisfy
     ([<InlineIfLambda>] guard: char -> bool)
     : Parser<Unmemorized, 'state, char * SourcePos, SatisfyParserError> =
@@ -57,6 +67,11 @@ type StringParserError =
            Found: char
            SourcePos: SourcePos |}
     | UnexpectedEndOfInput of {| SourcePos: SourcePos |}
+
+    member inline this.SourcePos =
+        match this with
+        | UnexpectedChar payload -> payload.SourcePos
+        | UnexpectedEndOfInput payload -> payload.SourcePos
 
 let inline pstring (str: string) : Parser<Unmemorized, unit, string * SourcePos, StringParserError> =
     Parser.make (fun (state, sourceFile, cursorIndex) ->
