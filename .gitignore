@@ -1,4 +1,7 @@
 bin
 obj
+.fsdocs
+output
+tmp
 
 .vs

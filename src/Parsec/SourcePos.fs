@@ -1,4 +1,5 @@
-module SourcePos
+[<AutoOpen>]
+module Parsec.SourcePos
 
 type SourcePos = { Line: int; Column: int }
 
