@@ -1,8 +1,9 @@
-﻿module Program
+﻿module Mylang.Program
 
 open System
-
 open Parsec
+
+open Ast
 
 module P = BasicParser
 
@@ -10,36 +11,62 @@ let src = SourceFile.fromString "let foo = func(12)(13);"
 
 let parserContext = ParserContext src
 
-type Identifier = { SourcePos: SourcePos; Raw: string }
+[<RequireQualifiedAccess>]
+type IdentSyntaxError =
+    | InvalidHeadChar of {| Found: char; SourcePos: SourcePos |}
+    | UnexpectedEndOfInput of {| SourcePos: SourcePos |}
 
-let identParser: Parser<Memorized, unit, Identifier, SourcePos> =
+let identHeadChar c = Char.IsAsciiLetter c || c = '_'
+
+let identTailChar c = Char.IsAsciiLetterOrDigit c || c = '_'
+
+let identParser =
     parser {
-        let! (head, headPos) = P.satisfy Char.IsAsciiLetter |> Parser.mapError (fun err -> err.SourcePos)
-        let! tail = P.satisfy Char.IsAsciiLetterOrDigit |> Parser.map fst |> Parser.many
+        let! (head, headPos) =
+            P.satisfy identHeadChar
+            |> Parser.mapError (fun err ->
+                match err with
+                | P.SatisfyParserError.UnexpectedChar payload ->
+                    IdentSyntaxError.InvalidHeadChar
+                        {| Found = payload.Found
+                           SourcePos = payload.SourcePos |}
+                | P.SatisfyParserError.UnexpectedEndOfInput payload ->
+                    IdentSyntaxError.UnexpectedEndOfInput {| SourcePos = payload.SourcePos |})
+
+        let! tail = P.satisfy identTailChar |> Parser.map fst |> Parser.many
         let raw = head :: tail |> List.toArray |> String
-        return { SourcePos = headPos; Raw = raw }
+        return ({ SourcePos = headPos; Raw = raw }: Identifier)
     }
     |> parserContext.Memorize
 
-type IntLiteral = { SourcePos: SourcePos; Raw: string }
+[<RequireQualifiedAccess>]
+type IntLiteralSyntaxError =
+    | InvalidHeadChar of {| Found: char; SourcePos: SourcePos |}
+    | UnexpectedEndOfInput of {| SourcePos: SourcePos |}
 
-let intLiteralParser: Parser<Memorized, unit, IntLiteral, SourcePos> =
+    member inline this.SourcePos =
+        match this with
+        | InvalidHeadChar payload -> payload.SourcePos
+        | UnexpectedEndOfInput payload -> payload.SourcePos
+
+let intLiteralParser: Parser<Memorized, unit, IntLiteral, IntLiteralSyntaxError> =
     parser {
-        let! (firstDigit, headPos) = P.satisfy Char.IsAsciiDigit |> Parser.mapError (fun err -> err.SourcePos)
+        let! (firstDigit, headPos) =
+            P.satisfy Char.IsAsciiDigit
+            |> Parser.mapError (fun err ->
+                match err with
+                | P.SatisfyParserError.UnexpectedChar payload ->
+                    IntLiteralSyntaxError.InvalidHeadChar
+                        {| Found = payload.Found
+                           SourcePos = payload.SourcePos |}
+                | P.SatisfyParserError.UnexpectedEndOfInput payload ->
+                    IntLiteralSyntaxError.UnexpectedEndOfInput {| SourcePos = payload.SourcePos |})
+
         let! succeedingDigits = P.satisfy Char.IsAsciiDigit |> Parser.map fst |> Parser.many
         let raw = firstDigit :: succeedingDigits |> List.toArray |> String
         return { SourcePos = headPos; Raw = raw }
     }
     |> parserContext.Memorize
-
-type Expression =
-    | Identifier of Identifier
-    | IntLiteral of IntLiteral
-    | Funcall of Funcall
-
-and Funcall =
-    { Callee: Expression
-      Arguments: Expression[] }
 
 [<RequireQualifiedAccess>]
 type ExpressionSyntaxError =
@@ -53,7 +80,7 @@ let exprParser, exprParserRef =
 let factorParser =
     (identParser |> Parser.map Identifier)
     |> Parser.alt (intLiteralParser |> Parser.map IntLiteral)
-    |> Parser.mapError ExpressionSyntaxError.ExpressionNotFound
+    |> Parser.mapError (fun err -> ExpressionSyntaxError.ExpressionNotFound err.SourcePos)
     |> parserContext.Memorize
 
 let argumentsParser =
@@ -88,7 +115,7 @@ exprParserRef.Value <-
 type LetStmtSyntaxError =
     | LetNotFound of SourcePos
     | SpacesBeforeIdentnotFound of SourcePos
-    | IdentNotFound of SourcePos
+    | Ident of IdentSyntaxError
     | EqualNotFound of SourcePos
     | Initializer of ExpressionSyntaxError
 
@@ -103,7 +130,7 @@ let letStmtParser =
             |> Parser.some
             |> Parser.mapError (fun err -> LetStmtSyntaxError.SpacesBeforeIdentnotFound err.SourcePos)
 
-        let! ident = identParser |> Parser.mapError LetStmtSyntaxError.IdentNotFound
+        let! ident = identParser |> Parser.mapError LetStmtSyntaxError.Ident
         let! _ = P.pchar ' ' |> Parser.many
 
         let! _ =
@@ -125,5 +152,4 @@ let myParser: Parser<Memorized, unit, Option<Identifier * Expression> * LetStmtS
         |> Parser.mapError ignore)
     |> parserContext.Memorize
 
-parserContext.Run(myParser, initialState = (), fromIndex = 0)
-|> printfn "\n--- exprParser ---\n%A"
+parserContext.Run(myParser, initialState = (), fromIndex = 0) |> printfn "%A"
