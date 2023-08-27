@@ -5,7 +5,7 @@
 ```bash
 $ dotnet restore
 $ dotnet tool restore
-$ dotnet run --project src/App
+$ dotnet run --project src/App source.mylang
 ```
 
 ## ドキュメント生成
