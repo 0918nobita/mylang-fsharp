@@ -1,6 +1,8 @@
 [<AutoOpen>]
 module Parsec.Parser
 
+open System.Collections.Generic
+
 type CursorIndex = int
 
 type ParseSuccess<'ParsedValue> =
@@ -44,6 +46,22 @@ module Parser =
     /// メモ化されていない単純なパーサを生成する
     let make (parseFn: ParseFn<'State, 'T, 'E>) : Parser<Unmemorized, 'State, 'T, 'E> =
         Parser <| fun _contextId -> parseFn
+
+    let memorize (Parser parse: Parser<_, 'State, 'T, 'E>) : Parser<Memorized, 'State, 'T, 'E> =
+        let memo =
+            Dictionary<ContextId * CursorIndex * 'State, ParseResult<'State, 'T, 'E>>()
+
+        Parser
+        <| fun contextId ->
+            let parseFn = parse contextId
+
+            fun (state, sourceFile, cursorIndex) ->
+                if memo.ContainsKey((contextId, cursorIndex, state)) then
+                    memo.[contextId, cursorIndex, state]
+                else
+                    let result = parseFn (state, sourceFile, cursorIndex)
+                    memo.[(contextId, cursorIndex, state)] <- result
+                    result
 
     /// 必ず成功して <c>parsedValue</c> を返すパーサを生成する
     let inline succeed (parsedValue: 'T) : Parser<Unmemorized, _, 'T, _> =
@@ -163,7 +181,14 @@ module Parser =
 
             fun (prevState, sourceFile, cursorIndex) ->
                 parseFn (prevState, sourceFile, cursorIndex)
-                |> Result.map (fun (newState, { NextIndex = _; ParsedValue = parsedValue }) -> (newState, { NextIndex = cursorIndex; ParsedValue = parsedValue }))
+                |> Result.map
+                    (fun
+                        (newState,
+                         { NextIndex = _
+                           ParsedValue = parsedValue }) ->
+                        (newState,
+                         { NextIndex = cursorIndex
+                           ParsedValue = parsedValue }))
 
     let opt (Parser parse: Parser<_, 'State, 'T, 'E>) : Parser<Unmemorized, 'State, Option<'T>, _> =
         Parser
@@ -172,10 +197,20 @@ module Parser =
 
             fun (prevState, sourceFile, cursorIndex) ->
                 match parseFn (prevState, sourceFile, cursorIndex) with
-                | Ok (newState, { NextIndex = nextIndex; ParsedValue = parsedValue }) ->
-                    Ok (newState, { NextIndex = nextIndex; ParsedValue = Some parsedValue })
+                | Ok(newState,
+                     { NextIndex = nextIndex
+                       ParsedValue = parsedValue }) ->
+                    Ok(
+                        newState,
+                        { NextIndex = nextIndex
+                          ParsedValue = Some parsedValue }
+                    )
                 | Error _reason ->
-                    Ok (prevState, { NextIndex = cursorIndex; ParsedValue = None })
+                    Ok(
+                        prevState,
+                        { NextIndex = cursorIndex
+                          ParsedValue = None }
+                    )
 
     /// 0回以上の繰り返し
     let many (Parser parse: Parser<_, 'State, 'T, _>) : Parser<Unmemorized, 'State, 'T list, _> =

@@ -7,10 +7,6 @@ open Ast
 
 module P = BasicParser
 
-let src = SourceFile.fromString "let foo = func(12)(13);"
-
-let parserContext = ParserContext src
-
 [<RequireQualifiedAccess>]
 type IdentSyntaxError =
     | InvalidHeadChar of {| Found: char; SourcePos: SourcePos |}
@@ -37,7 +33,7 @@ let identParser =
         let raw = head :: tail |> List.toArray |> String
         return ({ SourcePos = headPos; Raw = raw }: Identifier)
     }
-    |> parserContext.Memorize
+    |> Parser.memorize
 
 [<RequireQualifiedAccess>]
 type IntLiteralSyntaxError =
@@ -66,7 +62,7 @@ let intLiteralParser: Parser<Memorized, unit, IntLiteral, IntLiteralSyntaxError>
         let raw = firstDigit :: succeedingDigits |> List.toArray |> String
         return { SourcePos = headPos; Raw = raw }
     }
-    |> parserContext.Memorize
+    |> Parser.memorize
 
 [<RequireQualifiedAccess>]
 type ExpressionSyntaxError =
@@ -81,7 +77,7 @@ let factorParser =
     (identParser |> Parser.map Identifier)
     |> Parser.alt (intLiteralParser |> Parser.map IntLiteral)
     |> Parser.mapError (fun err -> ExpressionSyntaxError.ExpressionNotFound err.SourcePos)
-    |> parserContext.Memorize
+    |> Parser.memorize
 
 let argumentsParser =
     parser {
@@ -109,7 +105,7 @@ exprParserRef.Value <-
 
         return argumentArrays |> List.fold folder factor
     }
-    |> parserContext.Memorize
+    |> Parser.memorize
 
 [<RequireQualifiedAccess>]
 type LetStmtSyntaxError =
@@ -141,7 +137,7 @@ let letStmtParser =
         let! init = exprParser |> Parser.mapError LetStmtSyntaxError.Initializer
         return (ident, init)
     }
-    |> parserContext.Memorize
+    |> Parser.memorize
 
 let myParser: Parser<Memorized, unit, Option<Identifier * Expression> * LetStmtSyntaxError list, unit> =
     letStmtParser
@@ -150,6 +146,9 @@ let myParser: Parser<Memorized, unit, Option<Identifier * Expression> * LetStmtS
         Parser.skipTill (P.pchar ';')
         |> Parser.map (fun _ -> (None, [ err ]))
         |> Parser.mapError ignore)
-    |> parserContext.Memorize
+    |> Parser.memorize
 
+let src = SourceFile.fromString "let foo = func(12)(13);"
+
+let parserContext = ParserContext src
 parserContext.Run(myParser, initialState = (), fromIndex = 0) |> printfn "%A"
