@@ -8,6 +8,7 @@
   <ItemGroup>
     <Compile Include="Ast.fs" />
     <Compile Include="Parser.fs" />
+    <Compile Include="ESTree.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 
