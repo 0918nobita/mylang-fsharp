@@ -8,7 +8,8 @@
   <ItemGroup>
     <Compile Include="Ast.fs" />
     <Compile Include="Parser.fs" />
-    <Compile Include="ESTree.fs" />
+    <Compile Include="TSTree.fs" />
+    <Compile Include="TSTreePrinter.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 
