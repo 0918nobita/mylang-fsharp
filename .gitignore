@@ -3,5 +3,6 @@ obj
 .fsdocs
 output
 tmp
-
 .vs
+
+*.ts
