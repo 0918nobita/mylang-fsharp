@@ -2,57 +2,50 @@ module Mylang.TSTreePrinter
 
 open TSTree
 
-type private TSTreeVisitor() =
-    interface ITSTreeVisitor<string> with
-        member _.Visit(identifier: Identifier) = identifier.Text
+let inline private printIdentifier (ast: TSTree.Identifier) = ast.Text
 
-        member _.Visit(numericLiteral: NumericLiteral) = numericLiteral.Text
+let inline private printTypeNode (ast: TSTree.TypeNode) =
+    match ast with
+    | BooleanKeywordType -> "boolean"
+    | NumberKeywordType -> "number"
+    | StringKeywordType -> "string"
 
-        member _.Visit(stringLiteral: StringLiteral) = stringLiteral.Text
+let rec private printExpression (ast: TSTree.Expression) =
+    match ast with
+    | CallExpression callExpression ->
+        let callee = printExpression callExpression.Callee
 
-        member this.Visit(expression: Expression) =
-            match expression with
-            | Identifier identifier -> identifier.Accept(this)
-            | NumericLiteral numericLiteral -> numericLiteral.Accept(this)
-            | StringLiteral stringLiteral -> stringLiteral.Accept(this)
+        let arguments =
+            callExpression.Arguments |> Array.map printExpression |> String.concat ", "
 
-        member _.Visit(typeNode: TypeNode) =
-            match typeNode with
-            | BooleanKeywordType -> "boolean"
-            | NumberKeywordType -> "number"
-            | StringKeywordType -> "string"
+        $"%s{callee}(%s{arguments})"
+    | Identifier identifier -> printIdentifier identifier
+    | NumericLiteral numericLiteral -> numericLiteral.Text
+    | StringLiteral stringLiteral -> $"\"%s{stringLiteral.Text}\""
 
-        member this.Visit(variableDeclarationList: VariableDeclarationList) =
-            let letOrConst =
-                match variableDeclarationList.LetOrConst with
-                | Let -> "let"
-                | Const -> "const"
+let inline private printStmt (ast: TSTree.Statement) =
+    match ast with
+    | VariableDeclarationList variableDeclarationList ->
+        let letOrConst =
+            match variableDeclarationList.LetOrConst with
+            | Let -> "let"
+            | Const -> "const"
 
-            let declarations =
-                variableDeclarationList.Declarations
-                |> Array.map (fun variableDeclaration ->
-                    let ident = variableDeclaration.Identifier.Accept(this)
+        let declarations =
+            variableDeclarationList.Declarations
+            |> Array.map (fun variableDeclaration ->
+                let ident = printIdentifier variableDeclaration.Identifier
 
-                    let typeNode =
-                        variableDeclaration.Type
-                        |> Option.map (fun typeNode ->
-                            let typeNode = typeNode.Accept(this)
-                            $": %s{typeNode}")
-                        |> Option.defaultValue ""
+                let typeNode =
+                    variableDeclaration.Type
+                    |> Option.map (fun ty -> $": %s{printTypeNode ty}")
+                    |> Option.defaultValue ""
 
-                    let initializer = variableDeclaration.Initializer.Accept(this)
-                    $"%s{ident}%s{typeNode} = %s{initializer}")
-                |> String.concat ", "
+                let initializer = printExpression variableDeclaration.Initializer
+                $"%s{ident}%s{typeNode} = %s{initializer}")
+            |> String.concat ", "
 
-            $"%s{letOrConst} %s{declarations};"
+        $"%s{letOrConst} %s{declarations};"
 
-        member this.Visit(statement: Statement) =
-            match statement with
-            | VariableDeclarationList variableDeclarationList -> variableDeclarationList.Accept(this)
-
-        member this.Visit(program: Program) =
-            program.Body
-            |> Array.map (fun statement -> statement.Accept(this))
-            |> String.concat "\n"
-
-let print (tsTree: Program) = tsTree.Accept(TSTreeVisitor())
+let print (ast: TSTree.Program) =
+    ast.Body |> Array.map printStmt |> String.concat "\n"

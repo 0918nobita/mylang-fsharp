@@ -1,65 +1,39 @@
 module Mylang.TSTree
 
-type ITSTreeVisitor<'T> =
-    abstract member Visit: Identifier -> 'T
-    abstract member Visit: NumericLiteral -> 'T
-    abstract member Visit: StringLiteral -> 'T
-    abstract member Visit: Expression -> 'T
-    abstract member Visit: TypeNode -> 'T
-    abstract member Visit: VariableDeclarationList -> 'T
-    abstract member Visit: Statement -> 'T
-    abstract member Visit: Program -> 'T
+type CallExpression =
+    { Callee: Expression
+      Arguments: Expression[] }
 
-and Identifier =
-    { Text: string }
+and Identifier = { Text: string }
 
-    member inline this.Accept(visitor: ITSTreeVisitor<_>) = visitor.Visit(this)
+and NumericLiteral = { Text: string }
 
-and NumericLiteral =
-    { Text: string }
-
-    member inline this.Accept(visitor: ITSTreeVisitor<_>) = visitor.Visit(this)
-
-and StringLiteral =
-    { Text: string }
-
-    member inline this.Accept(visitor: ITSTreeVisitor<_>) = visitor.Visit(this)
+and StringLiteral = { Text: string }
 
 and Expression =
+    | CallExpression of CallExpression
     | Identifier of Identifier
     | NumericLiteral of NumericLiteral
     | StringLiteral of StringLiteral
 
-    member inline this.Accept(visitor: ITSTreeVisitor<_>) = visitor.Visit(this)
-
-and TypeNode =
+type TypeNode =
     | BooleanKeywordType
     | NumberKeywordType
     | StringKeywordType
 
-    member inline this.Accept(visitor: ITSTreeVisitor<_>) = visitor.Visit(this)
-
-and VariableDeclaration =
+type VariableDeclaration =
     { Identifier: Identifier
       Type: Option<TypeNode>
       Initializer: Expression }
 
-and LetOrConst =
+type LetOrConst =
     | Let
     | Const
 
-and VariableDeclarationList =
+type VariableDeclarationList =
     { LetOrConst: LetOrConst
       Declarations: VariableDeclaration[] }
 
-    member inline this.Accept(visitor: ITSTreeVisitor<_>) = visitor.Visit(this)
+type Statement = VariableDeclarationList of VariableDeclarationList
 
-and Statement =
-    | VariableDeclarationList of VariableDeclarationList
-
-    member inline this.Accept(visitor: ITSTreeVisitor<_>) = visitor.Visit(this)
-
-and Program =
-    { Body: Statement[] }
-
-    member inline this.Accept(visitor: ITSTreeVisitor<_>) = visitor.Visit(this)
+type Program = { Body: Statement[] }
