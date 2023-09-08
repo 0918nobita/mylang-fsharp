@@ -60,7 +60,7 @@ let private intLiteralParser: Parser<Memorized, unit, IntLiteral, IntLiteralSynt
 
         let! succeedingDigits = P.satisfy Char.IsAsciiDigit |> Parser.map fst |> Parser.many
         let raw = firstDigit :: succeedingDigits |> List.toArray |> String
-        return { SourcePos = headPos; Raw = raw }
+        return ({ SourcePos = headPos; Raw = raw }: IntLiteral)
     }
     |> Parser.memorize
 
