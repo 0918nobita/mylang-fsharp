@@ -1,7 +1,15 @@
+/// パーサに対する入力上の位置を表すデータ
 [<AutoOpen>]
 module Parsec.SourcePos
 
-type SourcePos = { Line: int; Column: int }
+open System.Runtime.CompilerServices
+
+[<IsReadOnly; Struct; StructuredFormatDisplay("[Ln {OneBasedLine}, Col {Column}]")>]
+type SourcePos =
+    { Line: int
+      Column: int }
+
+    member inline this.OneBasedLine = this.Line + 1
 
 module SourcePos =
     let origin: SourcePos = { Line = 0; Column = 0 }
