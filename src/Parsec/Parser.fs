@@ -1,343 +1,352 @@
+/// パーサの型定義・操作・合成
 [<AutoOpen>]
 module Parsec.Parser
 
 open System.Collections.Generic
+open System.Runtime.CompilerServices
 
-type CursorIndex = int
+/// <summary>パース成功</summary>
+/// <remarks>遷移後の状態と結果値を内包する</remarks>
+/// <typeparam name="State">パーサが持ち回る状態</typeparam>
+/// <typeparam name="T">結果値</typeparam>
+[<IsReadOnly; Struct>]
+type ParseSuccess<'State, 'T> = { NextState: 'State; ParsedValue: 'T }
 
-type ParseSuccess<'ParsedValue> =
-    {
-        /// 続けてパースする場合の開始位置
-        NextIndex: CursorIndex
-        ParsedValue: 'ParsedValue
-    }
+/// <summary>パース失敗</summary>
+/// <remarks>パース結果が <c>SoftFailure</c> または <c>HardFailure</c> の場合に得られる「想定していた入力」「実際の入力」「発生位置」に関する情報</remarks>
+[<IsReadOnly; Struct>]
+type ParseFailure =
+    { Actual: string
+      Expected: string
+      SourcePos: SourcePos }
 
 /// <summary>パース結果</summary>
-/// <typeparam name="State">遷移後の状態</typeparam>
-/// <typeparam name="ParsedValue">パースに成功した場合に得られる、パースされた値</typeparam>
-/// <typeparam name="ErrorReason">パースに失敗した場合に得られる、エラー原因</typeparam>
-type ParseResult<'State, 'ParsedValue, 'ErrorReason> = Result<'State * ParseSuccess<'ParsedValue>, 'ErrorReason>
+/// <remarks>失敗した際には、バックトラックを許す場合は <c>SoftFailure</c>、バックトラックを禁止する場合は <c>HardFailure</c> で表現する。</remarks>
+/// <typeparam name="State">パーサが持ち回る状態</typeparam>
+/// <typeparam name="T">パースに成功した場合の結果値</typeparam>
+[<IsReadOnly; Struct>]
+type ParseResult<'State, 'T> =
+    | Success of success: ParseSuccess<'State, 'T>
+    | SoftFailure of softFailure: ParseFailure
+    | HardFailure of hardFailure: ParseFailure
+
+/// <summary>ユーザが直接記述するパーサ実装</summary>
+/// <remarks><c>Parser.make</c> に渡して、メモ化の設定が可能なパーサの実体に変換する</remarks>
+type ParseFn<'State, 'T> = 'State * ISourceCharStream -> ParseResult<'State, 'T>
 
 /// パーサのコンテキストの識別子
-type internal ContextId = int
+type ContextId = int
 
-type ParseFn<'State, 'ParsedValue, 'ErrorReason> =
-    'State * SourceFile * CursorIndex -> ParseResult<'State, 'ParsedValue, 'ErrorReason>
-
+/// パーサがメモ化されているかどうかを表す幽霊型の制約
 type MemorizedOrNot =
     interface
     end
 
-type Unmemorized =
-    interface
-        inherit MemorizedOrNot
-    end
-
+/// パーサがメモ化されていることを表す幽霊型
 type Memorized =
     interface
         inherit MemorizedOrNot
     end
 
-type Parser<'MemorizedOrNot, 'State, 'ParsedValue, 'ErrorReason when 'MemorizedOrNot :> MemorizedOrNot> =
-    internal | Parser of
-        (ContextId -> 'State * SourceFile * CursorIndex -> ParseResult<'State, 'ParsedValue, 'ErrorReason>)
+/// パーサがメモ化されていないことを表す幽霊型
+type Unmemorized =
+    interface
+        inherit MemorizedOrNot
+    end
 
+/// <summary>パーサの実体</summary>
+/// <typeparam name="MemorizedOrNot">メモ化されているかどうかを表す幽霊型</typeparam>
+/// <typeparam name="State">パーサが持ち回る状態</typeparam>
+/// <typeparam name="T">パースに成功した場合の結果値</typeparam>
+type Parser<'MemorizedOrNot, 'State, 'T when 'MemorizedOrNot :> MemorizedOrNot> =
+    | Parser of Reader<ContextId, ParseFn<'State, 'T>>
+
+/// パーサの実体に対する操作・合成
 module Parser =
-    /// メモ化されていない単純なパーサを生成する
-    let make (parseFn: ParseFn<'State, 'T, 'E>) : Parser<Unmemorized, 'State, 'T, 'E> =
-        Parser <| fun _contextId -> parseFn
+    /// 新たにパーサの実体をつくる
+    let inline make (parseFn: ParseFn<'State, 'T>) : Parser<Unmemorized, 'State, 'T> =
+        Parser <| reader { return parseFn }
 
-    let memorize (Parser parse: Parser<_, 'State, 'T, 'E>) : Parser<Memorized, 'State, 'T, 'E> =
-        let memo =
-            Dictionary<ContextId * CursorIndex * 'State, ParseResult<'State, 'T, 'E>>()
+    /// まだメモ化されていないパーサの実体を引数に取り、メモ化済みのパーサの実体を返す
+    let inline memorize (Parser parse: Parser<Unmemorized, 'State, 'T>) : Parser<Memorized, 'State, 'T> =
+        let memo = Dictionary<ContextId * int * 'State, ParseResult<'State, 'T>>()
 
         Parser
-        <| fun contextId ->
-            let parseFn = parse contextId
+        <| reader {
+            let! parseFn = parse
 
-            fun (state, sourceFile, cursorIndex) ->
-                if memo.ContainsKey((contextId, cursorIndex, state)) then
-                    memo.[contextId, cursorIndex, state]
-                else
-                    let result = parseFn (state, sourceFile, cursorIndex)
-                    memo.[(contextId, cursorIndex, state)] <- result
-                    result
+            let! contextId = Reader.ask
 
-    /// 必ず成功して <c>parsedValue</c> を返すパーサを生成する
-    let inline succeed (parsedValue: 'T) : Parser<Unmemorized, _, 'T, _> =
-        make (fun (state, _sourceFile, cursorIndex) ->
-            Ok(
-                state,
-                { NextIndex = cursorIndex
-                  ParsedValue = parsedValue }
-            ))
+            return
+                fun (state, stream) ->
+                    let currentIndex = stream.CurrentIndex
 
-    /// 必ず失敗するパーサを生成する
-    let inline fail (reason: 'E) : Parser<Unmemorized, _, _, 'E> =
-        make (fun (_state, _sourceFile, _cursorIndex) -> Error reason)
+                    if memo.ContainsKey((contextId, currentIndex, state)) then
+                        memo.[contextId, currentIndex, state]
+                    else
+                        let result = parseFn (state, stream)
+                        memo.[(contextId, currentIndex, state)] <- result
+                        result
+        }
 
-    /// パーサの現在の状態を取得する
-    let getState () : Parser<Unmemorized, 'State, 'State, _> =
-        make (fun (state, _sourceFile, cursorIndex) ->
-            Ok(
-                state,
-                { NextIndex = cursorIndex
-                  ParsedValue = state }
-            ))
-
-    /// パーサの状態を指定した値に更新する
-    let putState (state: 'State) : Parser<Unmemorized, 'State, unit, _> =
-        make (fun (_state, _sourceFile, cursorIndex) ->
-            Ok(
-                state,
-                { NextIndex = cursorIndex
-                  ParsedValue = () }
-            ))
-
-    /// パーサの状態を指定した関数で更新する
-    let modifyState (mapping: 'State -> 'State) : Parser<Unmemorized, 'State, unit, _> =
-        make (fun (state, _sourceFile, cursorIndex) ->
-            Ok(
-                mapping state,
-                { NextIndex = cursorIndex
-                  ParsedValue = () }
-            ))
-
-    /// パースされた値を指定した関数で変換する
-    let map (mapping: 'T -> 'U) (Parser parse: Parser<_, 'State, 'T, 'E>) : Parser<Unmemorized, 'State, 'U, 'E> =
+    /// <summary><c>succeed parsedValue</c> は、実行されると必ず成功して、状態を遷移せずに結果値 <c>parsedValue</c> を返すパーサの実体をつくる</summary>
+    let inline succeed (parsedValue: 'T) : Parser<'Unmemorized, 'State, 'T> =
         Parser
-        <| fun contextId ->
-            let parseFn = parse contextId
+        <| reader {
+            return
+                fun (state, _stream) ->
+                    Success
+                        { NextState = state
+                          ParsedValue = parsedValue }
+        }
 
-            fun (prevState, sourceFile, cursorIndex) ->
-                parseFn (prevState, sourceFile, cursorIndex)
-                |> Result.map (fun (newState, success) ->
-                    (newState,
-                     { NextIndex = success.NextIndex
-                       ParsedValue = mapping success.ParsedValue }))
-
-    /// パース失敗時の原因を指定した関数で変換する
-    let mapError
-        (mapping: 'E1 -> 'E2)
-        (Parser parse: Parser<_, 'State, 'T, 'E1>)
-        : Parser<Unmemorized, 'State, 'T, 'E2> =
+    /// <summary>バックトラック可能なパーサに変換する</summary>
+    /// <remarks>
+    /// <c>opt</c> , <c>many</c> , <c>some</c> , <c>alt</c> パーサの内部で呼び出された際に Hard Failure を発生させるとバックトラックせずにエラー内容が伝播するが、
+    /// <c>backtrackable</c> を通じて Hard Failure を一律に Soft Failure に変換することで、バックトラックが発生するようになる
+    /// </remarks>
+    let inline backtrackable (Parser parse: Parser<_, 'State, 'T>) : Parser<Unmemorized, 'State, 'T> =
         Parser
-        <| fun contextId ->
-            let parseFn = parse contextId
+        <| reader {
+            let! parseFn = parse
 
-            fun (prevState, sourceFile, cursorIndex) ->
-                parseFn (prevState, sourceFile, cursorIndex) |> Result.mapError mapping
+            return
+                fun (state, stream) ->
+                    match parseFn (state, stream) with
+                    | Success success -> Success success
+                    | SoftFailure failure -> SoftFailure failure
+                    | HardFailure failure -> SoftFailure failure
+        }
 
-    let bind
-        (binder: 'T -> Parser<_, 'State, 'U, 'E>)
-        (Parser parse: Parser<_, 'State, 'T, _>)
-        : Parser<Unmemorized, 'State, 'U, 'E> =
+    /// <summary>パーサが失敗した際に、入力ストリームの読み取り位置をパーサ実行前の位置に復元する</summary>
+    /// <note><c>Parsec.Parser</c> モジュールの外部からは直接利用しないでください</note>
+    let inline restorePos (parse: Reader<ContextId, ParseFn<'State, 'T>>) : Reader<ContextId, ParseFn<'State, 'T>> =
+        reader {
+            let! parseFn = parse
+
+            return
+                fun (state, stream) ->
+                    let baseIndex = stream.CurrentIndex
+
+                    match parseFn (state, stream) with
+                    | Success success -> Success success
+                    | SoftFailure failure ->
+                        stream.CurrentIndex <- baseIndex
+                        SoftFailure failure
+                    | HardFailure failure ->
+                        stream.CurrentIndex <- baseIndex
+                        HardFailure failure
+        }
+
+    /// <summary>パーサの現在の状態 <c>'State</c> を結果値として取り出すパーサの実体をつくる</summary>
+    let inline getState () : Parser<Unmemorized, 'State, 'State> =
         Parser
-        <| fun contextId ->
-            let parseFn = parse contextId
+        <| reader {
+            return
+                fun (state, _stream) ->
+                    Success
+                        { NextState = state
+                          ParsedValue = state }
+        }
 
-            fun (prevState, sourceFile, cursorIndex) ->
-                parseFn (prevState, sourceFile, cursorIndex)
-                |> Result.bind (fun (newState, success) ->
-                    let (Parser parse) = binder success.ParsedValue
-                    parse contextId (newState, sourceFile, success.NextIndex))
-
-    /// 1つ目のパーサで失敗した場合、2つ目のパーサを試す
-    let alt
-        (Parser parse2: Parser<_, 'State, 'T, 'E>)
-        (Parser parse1: Parser<_, 'State, 'T, _>)
-        : Parser<Unmemorized, 'State, 'T, 'E> =
+    /// <summary><c>putState state</c> はパーサの状態を <c>state</c> に更新するパーサの実体をつくる</summary>
+    let inline putState (state: 'State) : Parser<Unmemorized, 'State, unit> =
         Parser
-        <| fun contextId ->
-            let parseFn1 = parse1 contextId
-            let parseFn2 = parse2 contextId
+        <| reader { return fun (_state, _stream) -> Success { NextState = state; ParsedValue = () } }
 
-            fun (prevState, sourceFile, cursorIndex) ->
-                match parseFn1 (prevState, sourceFile, cursorIndex) with
-                | Ok(newState, success) -> Ok(newState, success)
-                | Error _ -> parseFn2 (prevState, sourceFile, cursorIndex)
+    /// <summary><c>modifyState mapping</c> は、パーサの状態に対して関数 <c>mapping</c> を適用して更新するパーサの実体をつくる</summary>
+    let inline modifyState ([<InlineIfLambda>] mapping: 'State -> 'State) : Parser<Unmemorized, 'State, unit> =
+        Parser
+        <| reader {
+            return
+                fun (state, _stream) ->
+                    Success
+                        { NextState = mapping state
+                          ParsedValue = () }
+        }
+
+    /// <summary>成功した場合は結果値を関数 <c>mapping</c> で変換したうえで返すパーサの実体をつくる</summary>
+    let inline map
+        ([<InlineIfLambda>] mapping: 'T -> 'U)
+        (Parser parse: Parser<_, 'State, 'T>)
+        : Parser<Unmemorized, 'State, 'U> =
+        Parser
+        <| reader {
+            let! parseFn = parse
+
+            return
+                fun (state, stream) ->
+                    match parseFn (state, stream) with
+                    | Success success ->
+                        Success
+                            { NextState = success.NextState
+                              ParsedValue = mapping success.ParsedValue }
+                    | SoftFailure failure -> SoftFailure failure
+                    | HardFailure failure -> HardFailure failure
+        }
+
+    let inline mapError
+        ([<InlineIfLambda>] mapping: ParseFailure -> ParseFailure)
+        (Parser parse: Parser<_, 'State, 'T>)
+        : Parser<Unmemorized, 'State, 'T> =
+        Parser
+        <| reader {
+            let! parseFn = parse
+
+            return
+                fun (state, stream) ->
+                    match parseFn (state, stream) with
+                    | Success success -> Success success
+                    | SoftFailure failure -> SoftFailure(mapping failure)
+                    | HardFailure failure -> HardFailure(mapping failure)
+        }
+
+    /// <summary>パーサの連接</summary>
+    /// <remarks>
+    /// <c>bind binder parser</c> は、まず <c>parser</c> を実行する。
+    /// 成功した場合には <c>binder</c> を適用して得られるパーサを続けて実行し、その結果を返す。
+    /// 失敗した場合にはエラー内容を伝播する。
+    /// </remarks>
+    let inline bind
+        ([<InlineIfLambda>] binder: 'T -> Parser<_, 'State, 'U>)
+        (Parser parse: Parser<_, 'State, 'T>)
+        : Parser<Unmemorized, 'State, 'U> =
+        Parser
+        <| reader {
+            let! parseFn = parse
+
+            let! contextId = Reader.ask
+
+            return
+                fun (state, stream) ->
+                    match parseFn (state, stream) with
+                    | Success success ->
+                        let (Parser parse) = binder success.ParsedValue
+                        let parseFn = Reader.run contextId parse
+                        parseFn (success.NextState, stream)
+                    | SoftFailure failure -> SoftFailure failure
+                    | HardFailure failure -> HardFailure failure
+        }
+
+    let inline opt (Parser parse: Parser<_, 'State, 'T>) : Parser<Unmemorized, 'State, Option<'T>> =
+        reader {
+            let! parseFn = restorePos parse
+
+            return
+                fun (state, stream) ->
+                    match parseFn (state, stream) with
+                    | Success success ->
+                        Success
+                            { NextState = success.NextState
+                              ParsedValue = Some success.ParsedValue }
+                    | SoftFailure _failure ->
+                        Success
+                            { NextState = state
+                              ParsedValue = None }
+                    | HardFailure failure -> HardFailure failure
+        }
+        |> Parser
+
+    /// <summary>１つ目のパーサを試し、失敗した場合には２つ目のパーサを試す</summary>
+    /// <remarks>
+    /// <c>alt parser2 parser1</c> はまず <c>parser1</c> を実行する。
+    /// 成功した場合はその結果を伝播し、Soft Failure として失敗した場合には <c>parser2</c> を実行してその結果を返す。
+    /// Hard Failure として失敗した場合は <c>parser2</c> は実行されず、エラー内容を伝播する。
+    /// </remarks>
+    let inline alt
+        (Parser parse2: Parser<_, 'State, 'T>)
+        (Parser parse1: Parser<_, 'State, 'T>)
+        : Parser<Unmemorized, 'State, 'T> =
+        reader {
+            let! parseFn1 = restorePos parse1
+            let! parseFn2 = parse2
+
+            return
+                fun (state, stream) ->
+                    match parseFn1 (state, stream) with
+                    | Success success -> Success success
+                    | SoftFailure _failure -> parseFn2 (state, stream)
+                    | HardFailure failure -> HardFailure failure
+        }
+        |> Parser
 
     /// <summary>エラー復帰を表現するコンビネータ</summary>
     /// <remarks>1つ目のパーサで失敗した場合、そのエラー原因をもとに生成した2つ目のパーサを実行する</remarks>
-    let recover
-        (recovery: 'E1 -> Parser<_, 'State, 'T, 'E2>)
-        (Parser parse: Parser<_, 'State, _, 'E1>)
-        : Parser<Unmemorized, 'State, 'T, 'E2> =
+    let inline recover
+        ([<InlineIfLambda>] recovery: ParseFailure -> Parser<_, 'State, 'T>)
+        (Parser parse: Parser<_, 'State, _>)
+        : Parser<Unmemorized, 'State, 'T> =
         Parser
-        <| fun contextId ->
-            let parseFn = parse contextId
+        <| reader {
+            let! parseFn = restorePos parse
 
-            fun (state, sourceFile, cursorIndex) ->
-                match parseFn (state, sourceFile, cursorIndex) with
-                | Ok(state', success) -> Ok(state', success)
-                | Error reason ->
-                    let (Parser parse') = recovery reason
-                    parse' contextId (state, sourceFile, cursorIndex)
+            let! contextId = Reader.ask
 
-    let withoutMovingCursor (Parser parser: Parser<_, 'State, 'T, 'E>) : Parser<Unmemorized, 'State, 'T, 'E> =
-        Parser
-        <| fun contextId ->
-            let parseFn = parser contextId
+            return
+                fun (state, stream) ->
+                    match parseFn (state, stream) with
+                    | Success success -> Success success
+                    | SoftFailure failure
+                    | HardFailure failure ->
+                        let (Parser parse') = recovery failure
+                        let parseFn' = Reader.run contextId parse'
+                        parseFn' (state, stream)
+        }
 
-            fun (prevState, sourceFile, cursorIndex) ->
-                parseFn (prevState, sourceFile, cursorIndex)
-                |> Result.map
-                    (fun
-                        (newState,
-                         { NextIndex = _
-                           ParsedValue = parsedValue }) ->
-                        (newState,
-                         { NextIndex = cursorIndex
-                           ParsedValue = parsedValue }))
-
-    let opt (Parser parse: Parser<_, 'State, 'T, 'E>) : Parser<Unmemorized, 'State, Option<'T>, _> =
-        Parser
-        <| fun contextId ->
-            let parseFn = parse contextId
-
-            fun (prevState, sourceFile, cursorIndex) ->
-                match parseFn (prevState, sourceFile, cursorIndex) with
-                | Ok(newState,
-                     { NextIndex = nextIndex
-                       ParsedValue = parsedValue }) ->
-                    Ok(
-                        newState,
-                        { NextIndex = nextIndex
-                          ParsedValue = Some parsedValue }
-                    )
-                | Error _reason ->
-                    Ok(
-                        prevState,
-                        { NextIndex = cursorIndex
-                          ParsedValue = None }
-                    )
-
-    /// 0回以上の繰り返し
-    let many (Parser parse: Parser<_, 'State, 'T, _>) : Parser<Unmemorized, 'State, 'T list, _> =
-        Parser
-        <| fun contextId ->
-            let parseFn = parse contextId
-
-            fun (prevState, sourceFile, cursorIndex) ->
-                let mutable results: 'T list = []
-
-                let mutable currentState = prevState
-
-                let mutable currentIndex = cursorIndex
-
-                let mutable shouldContinue = true
-
-                while shouldContinue do
-                    match parseFn (currentState, sourceFile, currentIndex) with
-                    | Ok(newState,
-                         { NextIndex = nextIndex
-                           ParsedValue = parsedValue }) ->
-                        results <- parsedValue :: results
-                        currentState <- newState
-                        currentIndex <- nextIndex
-                    | Error _ -> shouldContinue <- false
-
-                Ok(
-                    currentState,
-                    { NextIndex = currentIndex
-                      ParsedValue = List.rev results }
-                )
-
-    /// 1回以上の繰り返し
-    let some (Parser parse: Parser<_, 'State, 'T, 'E>) : Parser<Unmemorized, 'State, 'T * 'T list, 'E> =
-        Parser
-        <| fun contextId ->
-            let parseFn = parse contextId
-
-            fun (prevState, sourceFile, cursorIndex) ->
-                match parseFn (prevState, sourceFile, cursorIndex) with
-                | Ok(newState,
-                     { NextIndex = nextIndex
-                       ParsedValue = head }) ->
-                    let mutable tail: 'T list = []
-
-                    let mutable currentState = newState
-
-                    let mutable currentIndex = nextIndex
-
-                    let mutable shouldContinue = true
-
-                    while shouldContinue do
-                        match parseFn (currentState, sourceFile, currentIndex) with
-                        | Ok(newState',
-                             { NextIndex = nextIndex'
-                               ParsedValue = parsedValue }) ->
-                            tail <- parsedValue :: tail
-                            currentState <- newState'
-                            currentIndex <- nextIndex'
-                        | Error _ -> shouldContinue <- false
-
-                    Ok(
-                        currentState,
-                        { NextIndex = currentIndex
-                          ParsedValue = (head, List.rev tail) }
-                    )
-                | Error err -> Error err
-
-    let endOfInput () : Parser<Unmemorized, _, unit, SourcePos> =
-        make (fun (state, sourceFile, cursorIndex) ->
-            match SourceFile.tryGetChar cursorIndex sourceFile with
-            | pos, Some c -> Error pos
-            | pos, None ->
-                Ok(
-                    state,
-                    { NextIndex = cursorIndex
-                      ParsedValue = () }
-                ))
-
-    let skipTill (parser: Parser<_, 'State, 'T, _>) : Parser<Unmemorized, 'State, 'T, unit> =
-        let (Parser parse) =
-            (endOfInput () |> map (fun () -> None) |> alt (parser |> map Some))
-
-        Parser
-        <| fun contextId ->
-            let parseFn = parse contextId
-
-            fun (state, sourceFile, cursorIndex) ->
-                let mutable result = Unchecked.defaultof<ParseResult<'State, 'T, _>>
-
-                let mutable currentIndex = cursorIndex
-
-                let mutable shouldContinue = true
-
-                while shouldContinue do
-                    match parseFn (state, sourceFile, currentIndex) with
-                    | Ok(newState,
-                         { NextIndex = nextIndex
-                           ParsedValue = Some parsedValue }) ->
-                        result <-
-                            Ok(
-                                newState,
-                                { NextIndex = nextIndex
-                                  ParsedValue = parsedValue }
-                            )
-
-                        shouldContinue <- false
-                    | Ok(_newState,
-                         { NextIndex = nextIndex
-                           ParsedValue = None }) ->
-                        result <- Error()
-                        shouldContinue <- false
-                    | Error _ -> currentIndex <- currentIndex + 1
-
-                result
-
-    let forwardRef<'MemorizedOrNot, 'State, 'T, 'E when 'MemorizedOrNot :> MemorizedOrNot>
+    let inline forwardRef<'MemorizedOrNot, 'State, 'T when 'MemorizedOrNot :> MemorizedOrNot>
         ()
-        : Parser<'MemorizedOrNot, 'State, 'T, 'E> * (Parser<'MemorizedOrNot, 'State, 'T, 'E> ref) =
-        let dummy = Parser <| fun _contextId _input -> failwith "parser not initialized"
+        : Parser<'MemorizedOrNot, 'State, 'T> * (Parser<'MemorizedOrNot, 'State, 'T> ref) =
+        let dummy = Parser <| reader { return fun _ -> failwith "parser not initialized" }
 
         let r = ref dummy
 
         let proxy =
             Parser
-            <| fun contextId ->
+            <| Reader(fun contextId ->
                 let (Parser parse) = r.Value
-                parse contextId
+                Reader.run contextId parse)
 
         (proxy, r)
+
+    /// 0回以上の繰り返し
+    let inline many (Parser parse: Parser<_, 'State, 'T>) : Parser<Unmemorized, 'State, 'T list> =
+        Parser
+        <| reader {
+            let! parseFn = parse
+
+            return
+                fun (prevState, stream) ->
+                    let mutable hardFailureOpt: Option<ParseFailure> = None
+
+                    let mutable results: 'T list = []
+
+                    let mutable currentState = prevState
+
+                    let mutable shouldContinue = true
+
+                    while shouldContinue do
+                        let baseIndex = stream.CurrentIndex
+
+                        match parseFn (currentState, stream) with
+                        | Success success ->
+                            results <- success.ParsedValue :: results
+                            currentState <- success.NextState
+                        | SoftFailure _failure ->
+                            stream.CurrentIndex <- baseIndex
+                            shouldContinue <- false
+                        | HardFailure failure ->
+                            stream.CurrentIndex <- baseIndex
+                            hardFailureOpt <- Some failure
+                            shouldContinue <- false
+
+                    match hardFailureOpt with
+                    | Some failure -> HardFailure failure
+                    | None ->
+                        Success
+                            { NextState = currentState
+                              ParsedValue = List.rev results }
+        }
+
+    /// 1回以上の繰り返し
+    let inline some (parser: Parser<_, 'State, 'T>) : Parser<Unmemorized, 'State, 'T * 'T list> =
+        parser |> bind (fun head -> many parser |> map (fun tail -> (head, tail)))

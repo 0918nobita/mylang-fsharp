@@ -1,6 +1,7 @@
 ﻿module Mylang.Program
 
 open System.IO
+open Parsec
 
 [<EntryPoint>]
 let main argv =
@@ -11,7 +12,9 @@ let main argv =
         try
             let source = File.ReadAllText argv.[0]
 
-            Parser.parse source |> printfn "%A"
+            use context = new ParserContext(source)
+
+            context.Run(MyParser.programParser, initialState = ()) |> printfn "%A"
 
             0
         with

@@ -1,96 +1,93 @@
-module Mylang.Parser
+module Mylang.MyParser
 
 open System
 open Parsec
 
-open Ast
-
 module P = BasicParser
 
-[<RequireQualifiedAccess>]
-type IdentSyntaxError =
-    | InvalidHeadChar of {| Found: char; SourcePos: SourcePos |}
-    | UnexpectedEndOfInput of {| SourcePos: SourcePos |}
+open Ast
 
-let private identHeadChar c = Char.IsAsciiLetter c || c = '_'
+let inline private identHeadChar c = Char.IsAsciiLetter c || c = '_'
 
-let private identTailChar c = Char.IsAsciiLetterOrDigit c || c = '_'
+let inline private identTailChar c = Char.IsAsciiLetterOrDigit c || c = '_'
 
-let private identParser =
+let private identParser: Parser<Memorized, unit, Identifier> =
     parser {
-        let! (head, headPos) =
-            P.satisfy identHeadChar
-            |> Parser.mapError (fun err ->
-                match err with
-                | P.SatisfyParserError.UnexpectedChar payload ->
-                    IdentSyntaxError.InvalidHeadChar
-                        {| Found = payload.Found
-                           SourcePos = payload.SourcePos |}
-                | P.SatisfyParserError.UnexpectedEndOfInput payload ->
-                    IdentSyntaxError.UnexpectedEndOfInput {| SourcePos = payload.SourcePos |})
+        let! (head, headPos) = P.satisfy "ASCII letter or '_'" identHeadChar
 
-        let! tail = P.satisfy identTailChar |> Parser.map fst |> Parser.many
+        let! tail =
+            P.satisfy "ASCII letter, digit or '_'" identTailChar
+            |> Parser.map fst
+            |> Parser.backtrackable
+            |> Parser.many
+
         let raw = head :: tail |> List.toArray |> String
+
         return ({ SourcePos = headPos; Raw = raw }: Identifier)
     }
     |> Parser.memorize
 
-[<RequireQualifiedAccess>]
-type private IntLiteralSyntaxError =
-    | InvalidHeadChar of {| Found: char; SourcePos: SourcePos |}
-    | UnexpectedEndOfInput of {| SourcePos: SourcePos |}
-
-    member inline this.SourcePos =
-        match this with
-        | InvalidHeadChar payload -> payload.SourcePos
-        | UnexpectedEndOfInput payload -> payload.SourcePos
-
-let private intLiteralParser: Parser<Memorized, unit, IntLiteral, IntLiteralSyntaxError> =
+let private intLiteralParser: Parser<Memorized, unit, IntLiteral> =
     parser {
-        let! (firstDigit, headPos) =
-            P.satisfy Char.IsAsciiDigit
-            |> Parser.mapError (fun err ->
-                match err with
-                | P.SatisfyParserError.UnexpectedChar payload ->
-                    IntLiteralSyntaxError.InvalidHeadChar
-                        {| Found = payload.Found
-                           SourcePos = payload.SourcePos |}
-                | P.SatisfyParserError.UnexpectedEndOfInput payload ->
-                    IntLiteralSyntaxError.UnexpectedEndOfInput {| SourcePos = payload.SourcePos |})
+        let! (firstDigit, headPos) = P.satisfy "ASCII digit" Char.IsAsciiDigit
 
-        let! succeedingDigits = P.satisfy Char.IsAsciiDigit |> Parser.map fst |> Parser.many
+        let! succeedingDigits =
+            P.satisfy "ASCII digit" Char.IsAsciiDigit
+            |> Parser.map fst
+            |> Parser.backtrackable
+            |> Parser.many
+
         let raw = firstDigit :: succeedingDigits |> List.toArray |> String
         return ({ SourcePos = headPos; Raw = raw }: IntLiteral)
     }
     |> Parser.memorize
 
-[<RequireQualifiedAccess>]
-type ExpressionSyntaxError =
-    | ExpressionNotFound of SourcePos
-    | FuncallLeftParenthesisNotFound of SourcePos
-    | FuncallRightParenthesisNotFound of SourcePos
+let private charLiteralParser: Parser<Memorized, unit, CharLiteral> =
+    parser {
+        let! (_, pos) = P.pchar '\'' |> Parser.backtrackable
+        let! (c, _) = P.anyChar ()
+        let! _ = P.pchar '\''
+        return ({ SourcePos = pos; Raw = c }: CharLiteral)
+    }
+    |> Parser.memorize
+
+let inline private stringLiteralChar c = c <> '"'
+
+let private stringLiteralParser: Parser<Memorized, unit, StringLiteral> =
+    parser {
+        let! (_, pos) = P.pchar '"' |> Parser.backtrackable
+
+        let! content =
+            P.satisfy "a character which is not double quote" stringLiteralChar
+            |> Parser.map fst
+            |> Parser.backtrackable
+            |> Parser.many
+
+        let! _ = P.pchar '"'
+
+        return
+            { SourcePos = pos
+              Raw = content |> List.toArray |> String }
+    }
+    |> Parser.memorize
 
 let private exprParser, private exprParserRef =
-    Parser.forwardRef<Memorized, unit, Expression, ExpressionSyntaxError> ()
+    Parser.forwardRef<Memorized, unit, Expression> ()
 
 let private factorParser =
-    (identParser |> Parser.map Identifier)
+    (identParser |> Parser.map Identifier |> Parser.backtrackable)
     |> Parser.alt (intLiteralParser |> Parser.map IntLiteral)
-    |> Parser.mapError (fun err -> ExpressionSyntaxError.ExpressionNotFound err.SourcePos)
+    |> Parser.backtrackable
+    |> Parser.alt (charLiteralParser |> Parser.map CharLiteral)
+    |> Parser.backtrackable
+    |> Parser.alt (stringLiteralParser |> Parser.map StringLiteral)
     |> Parser.memorize
 
 let private argumentsParser =
     parser {
-        let! _ =
-            P.pchar '('
-            |> Parser.mapError (fun err -> ExpressionSyntaxError.FuncallLeftParenthesisNotFound err.SourcePos)
-
+        let! _ = P.pchar '(' |> Parser.backtrackable
         let! firstArgument = exprParser
-
-        let! _ =
-            P.pchar ')'
-            |> Parser.mapError (fun err -> ExpressionSyntaxError.FuncallRightParenthesisNotFound err.SourcePos)
-
+        let! _ = P.pchar ')'
         return [| firstArgument |]
     }
 
@@ -107,50 +104,43 @@ exprParserRef.Value <-
     }
     |> Parser.memorize
 
-[<RequireQualifiedAccess>]
-type LetStmtSyntaxError =
-    | LetNotFound of SourcePos
-    | SpacesBeforeIdentnotFound of SourcePos
-    | Ident of IdentSyntaxError
-    | EqualNotFound of SourcePos
-    | Initializer of ExpressionSyntaxError
-
 let private letStmtParser =
     parser {
-        let! _ =
-            P.pstring "let"
-            |> Parser.mapError (fun err -> LetStmtSyntaxError.LetNotFound err.SourcePos)
+        let! (_, pos) = P.pstring "let" |> Parser.backtrackable
+        do! P.whiteSpaces1 ()
+        let! ident = identParser
+        do! P.whiteSpaces ()
+        let! _ = P.pchar '='
+        do! P.whiteSpaces ()
+        let! init = exprParser
 
-        let! _ =
-            P.pchar ' '
-            |> Parser.some
-            |> Parser.mapError (fun err -> LetStmtSyntaxError.SpacesBeforeIdentnotFound err.SourcePos)
-
-        let! ident = identParser |> Parser.mapError LetStmtSyntaxError.Ident
-        let! _ = P.pchar ' ' |> Parser.many
-
-        let! _ =
-            P.pchar '='
-            |> Parser.mapError (fun err -> LetStmtSyntaxError.EqualNotFound err.SourcePos)
-
-        let! _ = P.pchar ' ' |> Parser.many
-        let! init = exprParser |> Parser.mapError LetStmtSyntaxError.Initializer
-        return (ident, init)
+        return
+            { Identifier = ident
+              Initializer = init
+              SourcePos = pos }
     }
     |> Parser.memorize
 
-let private myParser: Parser<Memorized, unit, Option<Identifier * Expression> * LetStmtSyntaxError list, unit> =
-    letStmtParser
-    |> Parser.map (fun letStmt -> (Some letStmt, []))
-    |> Parser.recover (fun err ->
-        Parser.skipTill (P.pchar ';')
-        |> Parser.map (fun _ -> (None, [ err ]))
-        |> Parser.mapError ignore)
+let private topLevelLetStmtParser =
+    parser {
+        let! letStmt = letStmtParser
+        do! P.whiteSpaces ()
+        let! _ = P.pchar ';'
+        return letStmt
+    }
     |> Parser.memorize
 
-let parse (source: string) =
-    let src = SourceFile.fromString source
+let programParser =
+    parser {
+        let! stmts =
+            parser {
+                do! P.whiteSpaces () |> Parser.backtrackable
+                let! stmt = topLevelLetStmtParser
+                do! P.whiteSpaces ()
+                return stmt
+            }
+            |> Parser.many
 
-    let parserContext = ParserContext src
-
-    parserContext.Run(myParser, initialState = (), fromIndex = 0) |> Result.map snd
+        do! P.endOfFile ()
+        return stmts
+    }

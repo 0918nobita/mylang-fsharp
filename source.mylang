@@ -1,1 +1,8 @@
-let foo = func(12)(13);
+let foo = 3;
+let bar = 4;
+let baz = func(foo)(bar);
+
+let hoge = "Hello,";
+let fuga = "world!";
+
+let c = 'A';

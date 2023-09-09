@@ -7,7 +7,6 @@
 
   <ItemGroup>
     <Compile Include="SourcePos.fs" />
-    <Compile Include="SourceFile.fs" />
     <Compile Include="SourceCharStream.fs" />
     <Compile Include="Reader.fs" />
     <Compile Include="Parser.fs" />
