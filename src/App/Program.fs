@@ -12,6 +12,8 @@ let exit1 errorMsg =
 
 [<EntryPoint>]
 let main argv =
+    ShuntingYard.example ()
+
     if Array.isEmpty argv then
         exit1 "ソースファイルを指定してください"
     else

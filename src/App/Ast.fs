@@ -4,6 +4,7 @@ open Parsec
 
 type Identifier = { SourcePos: SourcePos; Raw: string }
 
+[<StructuredFormatDisplay("{Raw}")>]
 type IntLiteral = { SourcePos: SourcePos; Raw: string }
 
 type CharLiteral = { SourcePos: SourcePos; Raw: char }
