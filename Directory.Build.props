@@ -1,8 +1,9 @@
 <Project>
     <PropertyGroup>
-        <PackageName>Mylang</PackageName>
+        <Title>Mylang</Title>
         <Version>0.1.0</Version>
         <RepositoryType>git</RepositoryType>
         <RepositoryUrl>https://github.com/0918nobita/mylang-fsharp</RepositoryUrl>
+        <RepositoryBranch>main</RepositoryBranch>
     </PropertyGroup>
 </Project>
