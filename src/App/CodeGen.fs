@@ -6,6 +6,9 @@ let rec private codeGenExpression (ast: Ast.Expression) : TSTree.Expression =
     | Ast.IntLiteral intLiteral -> TSTree.NumericLiteral { Text = intLiteral.Raw }
     | Ast.CharLiteral charLiteral -> TSTree.StringLiteral { Text = string charLiteral.Raw }
     | Ast.StringLiteral stringLiteral -> TSTree.StringLiteral { Text = stringLiteral.Raw }
+    | Ast.Add _ -> failwith "not implemented"
+    | Ast.Mul _ -> failwith "not implemented"
+    | Ast.Pow _ -> failwith "not implemented"
     | Ast.Funcall funcall ->
         TSTree.CallExpression
             { Callee = codeGenExpression funcall.Callee

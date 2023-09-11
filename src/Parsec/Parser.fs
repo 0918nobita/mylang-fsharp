@@ -100,6 +100,9 @@ module Parser =
                           ParsedValue = parsedValue }
         }
 
+    let inline hardFailure (failure: ParseFailure) : Parser<Unmemorized, 'State, 'T> =
+        Parser <| reader { return fun (_state, _stream) -> HardFailure failure }
+
     /// <summary>バックトラック可能なパーサに変換する</summary>
     /// <remarks>
     /// <c>opt</c> , <c>many</c> , <c>some</c> , <c>alt</c> パーサの内部で呼び出された際に Hard Failure を発生させるとバックトラックせずにエラー内容が伝播するが、
