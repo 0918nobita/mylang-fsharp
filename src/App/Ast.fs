@@ -16,10 +16,22 @@ type Expression =
     | CharLiteral of CharLiteral
     | StringLiteral of StringLiteral
     | Funcall of Funcall
+    | Mul of Mul
+    | Div of Div
+    | Add of Add
+    | Sub of Sub
 
 and Funcall =
     { Callee: Expression
       Arguments: Expression[] }
+
+and Mul = { Lhs: Expression; Rhs: Expression }
+
+and Div = { Lhs: Expression; Rhs: Expression }
+
+and Add = { Lhs: Expression; Rhs: Expression }
+
+and Sub = { Lhs: Expression; Rhs: Expression }
 
 type LetStmt =
     { Identifier: Identifier

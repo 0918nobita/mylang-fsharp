@@ -1,6 +1,16 @@
 module Mylang.TSTree
 
-type CallExpression =
+type Expression =
+    | CallExpression of CallExpression
+    | Identifier of Identifier
+    | NumericLiteral of NumericLiteral
+    | StringLiteral of StringLiteral
+    | Mul of Mul
+    | Div of Div
+    | Add of Add
+    | Sub of Sub
+
+and CallExpression =
     { Callee: Expression
       Arguments: Expression[] }
 
@@ -10,11 +20,13 @@ and NumericLiteral = { Text: string }
 
 and StringLiteral = { Text: string }
 
-and Expression =
-    | CallExpression of CallExpression
-    | Identifier of Identifier
-    | NumericLiteral of NumericLiteral
-    | StringLiteral of StringLiteral
+and Mul = { Lhs: Expression; Rhs: Expression }
+
+and Div = { Lhs: Expression; Rhs: Expression }
+
+and Add = { Lhs: Expression; Rhs: Expression }
+
+and Sub = { Lhs: Expression; Rhs: Expression }
 
 type TypeNode =
     | BooleanKeywordType
