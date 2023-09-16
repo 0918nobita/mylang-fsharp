@@ -74,8 +74,15 @@ let private stringLiteralParser: Parser<Memorized, unit, StringLiteral> =
 let private exprParser, private exprParserRef =
     Parser.forwardRef<Memorized, unit, Expression> ()
 
-let private factorParser =
-    (identParser |> Parser.map Identifier |> Parser.backtrackable)
+let private expr1Parser =
+    parser {
+        let! _ = P.pchar '(' |> Parser.backtrackable
+        let! expr = exprParser
+        let! _ = P.pchar ')'
+        return expr
+    }
+    |> Parser.alt (identParser |> Parser.map Identifier)
+    |> Parser.backtrackable
     |> Parser.alt (intLiteralParser |> Parser.map IntLiteral)
     |> Parser.backtrackable
     |> Parser.alt (charLiteralParser |> Parser.map CharLiteral)
@@ -90,17 +97,90 @@ let private argumentsParser =
         let! _ = P.pchar ')'
         return [| firstArgument |]
     }
+    |> Parser.memorize
 
-exprParserRef.Value <-
+let private expr2Parser =
     parser {
-        let! factor = factorParser
+        let! expr1 = expr1Parser
 
         let! argumentArrays = argumentsParser |> Parser.many
 
         let folder (state: Expression) (item: Expression[]) : Expression =
             Funcall { Callee = state; Arguments = item }
 
-        return argumentArrays |> List.fold folder factor
+        return argumentArrays |> List.fold folder expr1
+    }
+    |> Parser.memorize
+
+type MulOrDivOp =
+    | MulOp
+    | DivOp
+
+let private mulOp: Parser<Memorized, unit, MulOrDivOp> =
+    P.pchar '*' |> Parser.map (fun _ -> MulOp) |> Parser.memorize
+
+let private divOp: Parser<Memorized, unit, MulOrDivOp> =
+    P.pchar '/' |> Parser.map (fun _ -> DivOp) |> Parser.memorize
+
+let private expr3Parser =
+    parser {
+        let! expr2 = expr2Parser
+
+        do! P.whiteSpaces ()
+
+        let! mulOrDiv =
+            parser {
+                let! op = mulOp |> Parser.backtrackable |> Parser.alt divOp |> Parser.backtrackable
+                do! P.whiteSpaces ()
+                let! rhs = expr2Parser
+                do! P.whiteSpaces ()
+                return (op, rhs)
+            }
+            |> Parser.many
+
+        return
+            mulOrDiv
+            |> List.fold
+                (fun lhs (op, rhs) ->
+                    match op with
+                    | MulOp -> Mul { Lhs = lhs; Rhs = rhs }
+                    | DivOp -> Div { Lhs = lhs; Rhs = rhs })
+                expr2
+    }
+    |> Parser.memorize
+
+type AddOrSubOp =
+    | AddOp
+    | SubOp
+
+let private addOp: Parser<Memorized, unit, AddOrSubOp> =
+    P.pchar '+' |> Parser.map (fun _ -> AddOp) |> Parser.memorize
+
+let private subOp: Parser<Memorized, unit, AddOrSubOp> =
+    P.pchar '-' |> Parser.map (fun _ -> SubOp) |> Parser.memorize
+
+exprParserRef.Value <-
+    parser {
+        let! expr3 = expr3Parser
+        do! P.whiteSpaces ()
+
+        let! addOrSub =
+            parser {
+                let! op = addOp |> Parser.backtrackable |> Parser.alt subOp |> Parser.backtrackable
+                do! P.whiteSpaces ()
+                let! rhs = expr3Parser
+                return (op, rhs)
+            }
+            |> Parser.many
+
+        return
+            addOrSub
+            |> List.fold
+                (fun lhs (op, rhs) ->
+                    match op with
+                    | AddOp -> Add { Lhs = lhs; Rhs = rhs }
+                    | SubOp -> Sub { Lhs = lhs; Rhs = rhs })
+                expr3
     }
     |> Parser.memorize
 

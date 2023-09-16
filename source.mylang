@@ -1,4 +1,4 @@
-let foo = 3;
+let foo = (2 + 3) * f(x);
 let bar = 4;
 let baz = func(foo)(bar);
 

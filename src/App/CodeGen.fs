@@ -10,6 +10,22 @@ let rec private codeGenExpression (ast: Ast.Expression) : TSTree.Expression =
         TSTree.CallExpression
             { Callee = codeGenExpression funcall.Callee
               Arguments = funcall.Arguments |> Array.map codeGenExpression }
+    | Ast.Mul mul ->
+        TSTree.Mul
+            { Lhs = codeGenExpression mul.Lhs
+              Rhs = codeGenExpression mul.Rhs }
+    | Ast.Div div ->
+        TSTree.Div
+            { Lhs = codeGenExpression div.Lhs
+              Rhs = codeGenExpression div.Rhs }
+    | Ast.Add add ->
+        TSTree.Add
+            { Lhs = codeGenExpression add.Lhs
+              Rhs = codeGenExpression add.Rhs }
+    | Ast.Sub sub ->
+        TSTree.Sub
+            { Lhs = codeGenExpression sub.Lhs
+              Rhs = codeGenExpression sub.Rhs }
 
 let codegen (ast: Ast.LetStmt[]) : TSTree.Program =
     let stmts =
