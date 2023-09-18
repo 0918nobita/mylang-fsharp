@@ -40,13 +40,15 @@ let main argv =
                     let parsed = success.ParsedValue
 
                     match TypeCheck.typeCheck parsed with
-                    | Ok() ->
+                    | [] ->
                         let tsAst = CodeGen.codegen parsed
                         let compiled = tsAst |> TSTreePrinter.print
                         File.WriteAllText(outFilePath, compiled + "\n")
                         printfn "Done \u2728"
                         0
-                    | Error typeError -> exit1 $"%A{typeError}"
+                    | typeErrors ->
+                        let errorMsg = typeErrors |> List.map (sprintf "%A") |> String.concat "\n"
+                        exit1 errorMsg
                 | SoftFailure failure
                 | HardFailure failure -> exit1 $"%A{failure}"
         with
