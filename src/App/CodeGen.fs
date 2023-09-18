@@ -6,6 +6,10 @@ let rec private codeGenExpression (ast: Ast.Expression) : TSTree.Expression =
     | Ast.IntLiteral intLiteral -> TSTree.NumericLiteral { Text = intLiteral.Raw }
     | Ast.CharLiteral charLiteral -> TSTree.StringLiteral { Text = string charLiteral.Raw }
     | Ast.StringLiteral stringLiteral -> TSTree.StringLiteral { Text = stringLiteral.Raw }
+    | Ast.Lambda lambda ->
+        TSTree.ArrowFunctionExpression
+            { Params = lambda.Params |> List.map (fun (ident, _ty) -> { Text = ident.Raw })
+              Body = codeGenExpression lambda.Body }
     | Ast.Funcall funcall ->
         TSTree.CallExpression
             { Callee = codeGenExpression funcall.Callee

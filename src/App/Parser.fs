@@ -7,6 +7,64 @@ module P = BasicParser
 
 open Ast
 
+let private typeParser, typeParserRef =
+    Parser.forwardRef<Memorized, unit, TypeAnnotation> ()
+
+let private funcTypeParser =
+    parser {
+        let! (_, pos) = P.pstring "fn" |> Parser.backtrackable
+        do! P.whiteSpaces ()
+        let! _ = P.pchar '('
+        do! P.whiteSpaces ()
+
+        let! paramTypes =
+            parser {
+                let! firstParamType = typeParser |> Parser.backtrackable
+                do! P.whiteSpaces ()
+
+                let! succeedingParamTypes =
+                    parser {
+                        let! _ = P.pchar ',' |> Parser.backtrackable
+                        do! P.whiteSpaces ()
+                        let! ty = typeParser
+                        do! P.whiteSpaces ()
+                        return ty
+                    }
+                    |> Parser.many
+
+                return (firstParamType :: succeedingParamTypes)
+            }
+            |> Parser.opt
+
+        let! _ = P.pchar ')'
+        do! P.whiteSpaces ()
+        let! _ = P.pstring "->"
+        do! P.whiteSpaces ()
+        let! returnType = typeParser
+
+        return
+            FuncType
+                {| Params = paramTypes |> Option.defaultValue []
+                   ReturnType = returnType
+                   SourcePos = pos |}
+    }
+    |> Parser.memorize
+
+typeParserRef.Value <-
+    parser {
+        let! _ = P.pchar '(' |> Parser.backtrackable
+        let! ty = typeParser
+        let! _ = P.pchar ')'
+        return ty
+    }
+    |> Parser.alt funcTypeParser
+    |> Parser.alt (P.pstring "char" |> Parser.map (fun (_, pos) -> CharKeywordType pos))
+    |> Parser.backtrackable
+    |> Parser.alt (P.pstring "number" |> Parser.map (fun (_, pos) -> NumberKeywordType pos))
+    |> Parser.backtrackable
+    |> Parser.alt (P.pstring "string" |> Parser.map (fun (_, pos) -> StringKeywordType pos))
+    |> Parser.memorize
+
 let inline private identHeadChar c = Char.IsAsciiLetter c || c = '_'
 
 let inline private identTailChar c = Char.IsAsciiLetterOrDigit c || c = '_'
@@ -74,6 +132,59 @@ let private stringLiteralParser: Parser<Memorized, unit, StringLiteral> =
 let private exprParser, private exprParserRef =
     Parser.forwardRef<Memorized, unit, Expression> ()
 
+let private lambdaParser =
+    parser {
+        let! (_, pos) = P.pchar '|' |> Parser.backtrackable
+        do! P.whiteSpaces ()
+
+        let! paramDecls =
+            parser {
+                let! firstParamIdent = identParser |> Parser.backtrackable
+                do! P.whiteSpaces ()
+                let! _ = P.pchar ':'
+                do! P.whiteSpaces ()
+                let! firstParamTy = typeParser
+                do! P.whiteSpaces ()
+
+                let! succeedingParams =
+                    parser {
+                        let! _ = P.pchar ',' |> Parser.backtrackable
+                        do! P.whiteSpaces ()
+                        let! ident = identParser
+                        do! P.whiteSpaces ()
+                        let! _ = P.pchar ':'
+                        do! P.whiteSpaces ()
+                        let! ty = typeParser
+                        do! P.whiteSpaces ()
+                        return (ident, ty)
+                    }
+                    |> Parser.many
+
+                return (firstParamIdent, firstParamTy) :: succeedingParams
+            }
+            |> Parser.opt
+
+        let! _ = P.pchar '|'
+        do! P.whiteSpaces ()
+        let! _ = P.pstring "->"
+        do! P.whiteSpaces ()
+        let! returnTy = typeParser
+        do! P.whiteSpaces ()
+        let! _ = P.pchar '{'
+        do! P.whiteSpaces ()
+        let! body = exprParser
+        do! P.whiteSpaces ()
+        let! _ = P.pchar '}'
+
+        return
+            Lambda
+                { Params = paramDecls |> Option.defaultValue []
+                  ReturnType = returnTy
+                  Body = body
+                  SourcePos = pos }
+    }
+    |> Parser.memorize
+
 let private expr1Parser =
     parser {
         let! _ = P.pchar '(' |> Parser.backtrackable
@@ -81,6 +192,7 @@ let private expr1Parser =
         let! _ = P.pchar ')'
         return expr
     }
+    |> Parser.alt lambdaParser
     |> Parser.alt (identParser |> Parser.map Identifier)
     |> Parser.backtrackable
     |> Parser.alt (intLiteralParser |> Parser.map IntLiteral)
@@ -184,15 +296,6 @@ exprParserRef.Value <-
     }
     |> Parser.memorize
 
-let typeParser: Parser<Memorized, unit, TypeAnnotation> =
-    P.pstring "char"
-    |> Parser.map (fun (_, pos) -> CharKeywordType pos)
-    |> Parser.backtrackable
-    |> Parser.alt (P.pstring "number" |> Parser.map (fun (_, pos) -> NumberKeywordType pos))
-    |> Parser.backtrackable
-    |> Parser.alt (P.pstring "string" |> Parser.map (fun (_, pos) -> StringKeywordType pos))
-    |> Parser.memorize
-
 let private letStmtParser =
     parser {
         let! (_, pos) = P.pstring "let" |> Parser.backtrackable
@@ -228,7 +331,7 @@ let programParser =
     parser {
         let! stmts =
             parser {
-                do! P.whiteSpaces () |> Parser.backtrackable
+                do! P.whiteSpaces ()
                 let! stmt = topLevelLetStmtParser
                 do! P.whiteSpaces ()
                 return stmt

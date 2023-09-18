@@ -6,3 +6,5 @@ let hoge: string = "Hello,";
 let fuga: string = "world!";
 
 let c: char = 'A';
+
+let func: fn(number, number) -> number = |a: number, b: number| -> number { a + b };

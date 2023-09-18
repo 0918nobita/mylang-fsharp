@@ -14,6 +14,7 @@ type Priority =
     | Ident = 20
     | NumLit = 20
     | StrLit = 20
+    | ArrowFuncExpr = 20
     | Funcall = 18
     | Mul = 13
     | Div = 13
@@ -25,6 +26,14 @@ let inline private insertParen ((str, innerPriority): string * Priority) (outerP
 
 let rec private printExpression (ast: TSTree.Expression) : string * Priority =
     match ast with
+    | ArrowFunctionExpression arrowFunctionExpression ->
+        let paramDecls =
+            arrowFunctionExpression.Params |> List.map printIdentifier |> String.concat ", "
+
+        let body =
+            insertParen (printExpression arrowFunctionExpression.Body) Priority.ArrowFuncExpr
+
+        $"({paramDecls}) => {body}", Priority.ArrowFuncExpr
     | CallExpression callExpression ->
         let callee = insertParen (printExpression callExpression.Callee) Priority.Funcall
 

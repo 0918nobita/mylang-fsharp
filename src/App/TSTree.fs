@@ -1,6 +1,7 @@
 module Mylang.TSTree
 
 type Expression =
+    | ArrowFunctionExpression of ArrowFunctionExpression
     | CallExpression of CallExpression
     | Identifier of Identifier
     | NumericLiteral of NumericLiteral
@@ -9,6 +10,10 @@ type Expression =
     | Div of Div
     | Add of Add
     | Sub of Sub
+
+and ArrowFunctionExpression =
+    { Params: list<Identifier>
+      Body: Expression }
 
 and CallExpression =
     { Callee: Expression

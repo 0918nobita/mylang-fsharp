@@ -8,6 +8,9 @@ type Type =
     | Char
     | Number
     | String
+    | Func of
+        {| Params: list<Type>
+           ReturnType: Type |}
 
 type TypeError =
     | TypeMismatch of
@@ -15,6 +18,19 @@ type TypeError =
            Actual: Type
            SourcePos: SourcePos |}
     | UnresolvedName of {| Name: string; SourcePos: SourcePos |}
+
+let rec private typeAnnotationToType (typeAnnotation: TypeAnnotation) : Type =
+    match typeAnnotation with
+    | CharKeywordType _ -> Char
+    | NumberKeywordType _ -> Number
+    | StringKeywordType _ -> String
+    | FuncType funcType ->
+        let paramTypes = funcType.Params |> List.map typeAnnotationToType
+        let returnType = typeAnnotationToType funcType.ReturnType
+
+        Func
+            {| Params = paramTypes
+               ReturnType = returnType |}
 
 let rec private typeCheckExpr (typeEnv: Map<string, Type>) (expr: Expression) (expectedType: Type) : list<TypeError> =
     match expr with
@@ -55,6 +71,30 @@ let rec private typeCheckExpr (typeEnv: Map<string, Type>) (expr: Expression) (e
             [ UnresolvedName
                   {| Name = ident.Raw
                      SourcePos = ident.SourcePos |} ]
+    | Lambda lambda ->
+        let newTypeEnv =
+            lambda.Params
+            |> List.fold (fun state (ident, ty) -> state |> Map.add ident.Raw (typeAnnotationToType ty)) typeEnv
+
+        let paramTypes = lambda.Params |> List.map (snd >> typeAnnotationToType)
+
+        let returnTy = typeAnnotationToType lambda.ReturnType
+
+        let funcTy =
+            Func
+                {| Params = paramTypes
+                   ReturnType = returnTy |}
+
+        let bodyErrors = typeCheckExpr newTypeEnv lambda.Body returnTy
+
+        if expectedType <> funcTy then
+            TypeMismatch
+                {| Expected = expectedType
+                   Actual = funcTy
+                   SourcePos = lambda.SourcePos |}
+            :: bodyErrors
+        else
+            bodyErrors
     | Funcall _ -> failwith "not implemented"
     | Mul mul ->
         let lhsErrors = typeCheckExpr typeEnv mul.Lhs Number
@@ -110,19 +150,10 @@ let rec private typeCheckExpr (typeEnv: Map<string, Type>) (expr: Expression) (e
             lhsErrors @ rhsErrors
 
 let private typeCheckLetStmt (typeEnv: Map<string, Type>) (letStmt: LetStmt) : Map<string, Type> * list<TypeError> =
-    match letStmt.Type with
-    | CharKeywordType _ ->
-        let initializerErrors = typeCheckExpr typeEnv letStmt.Initializer Char
-        let newTypeEnv = typeEnv |> Map.add letStmt.Identifier.Raw Char
-        (newTypeEnv, initializerErrors)
-    | NumberKeywordType _ ->
-        let initializerErrors = typeCheckExpr typeEnv letStmt.Initializer Number
-        let newTypeEnv = typeEnv |> Map.add letStmt.Identifier.Raw Number
-        (newTypeEnv, initializerErrors)
-    | StringKeywordType _ ->
-        let initializerErrors = typeCheckExpr typeEnv letStmt.Initializer String
-        let newTypeEnv = typeEnv |> Map.add letStmt.Identifier.Raw String
-        (newTypeEnv, initializerErrors)
+    let expectedType = typeAnnotationToType letStmt.Type
+    let initializerErrors = typeCheckExpr typeEnv letStmt.Initializer expectedType
+    let newTypeEnv = typeEnv |> Map.add letStmt.Identifier.Raw expectedType
+    (newTypeEnv, initializerErrors)
 
 let typeCheck (letStmts: list<LetStmt>) : list<TypeError> =
     letStmts
