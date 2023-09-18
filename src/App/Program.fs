@@ -37,12 +37,16 @@ let main argv =
 
                 match context.Run(MyParser.programParser, initialState = ()) with
                 | Success success ->
-                    let parsed = success.ParsedValue |> List.toArray
-                    let tsAst = CodeGen.codegen parsed
-                    let compiled = tsAst |> TSTreePrinter.print
-                    File.WriteAllText(outFilePath, compiled + "\n")
-                    printfn "Done \u2728"
-                    0
+                    let parsed = success.ParsedValue
+
+                    match TypeCheck.typeCheck parsed with
+                    | Ok() ->
+                        let tsAst = CodeGen.codegen parsed
+                        let compiled = tsAst |> TSTreePrinter.print
+                        File.WriteAllText(outFilePath, compiled + "\n")
+                        printfn "Done \u2728"
+                        0
+                    | Error typeError -> exit1 $"%A{typeError}"
                 | SoftFailure failure
                 | HardFailure failure -> exit1 $"%A{failure}"
         with

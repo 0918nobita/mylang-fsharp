@@ -79,4 +79,4 @@ let inline private printStmt (ast: TSTree.Statement) =
         $"%s{letOrConst} %s{declarations};"
 
 let print (ast: TSTree.Program) =
-    ast.Body |> Array.map printStmt |> String.concat "\n"
+    ast.Body |> List.map printStmt |> String.concat "\n"

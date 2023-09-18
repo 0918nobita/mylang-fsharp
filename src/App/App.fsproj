@@ -8,6 +8,7 @@
   <ItemGroup>
     <Compile Include="Ast.fs" />
     <Compile Include="Parser.fs" />
+    <Compile Include="TypeCheck.fs" />
     <Compile Include="TSTree.fs" />
     <Compile Include="CodeGen.fs" />
     <Compile Include="TSTreePrinter.fs" />

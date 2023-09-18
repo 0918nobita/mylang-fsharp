@@ -48,4 +48,4 @@ type VariableDeclarationList =
 
 type Statement = VariableDeclarationList of VariableDeclarationList
 
-type Program = { Body: Statement[] }
+type Program = { Body: list<Statement> }

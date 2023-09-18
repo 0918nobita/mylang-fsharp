@@ -184,11 +184,24 @@ exprParserRef.Value <-
     }
     |> Parser.memorize
 
+let typeParser: Parser<Memorized, unit, TypeAnnotation> =
+    P.pstring "char"
+    |> Parser.map (fun (_, pos) -> CharKeywordType pos)
+    |> Parser.backtrackable
+    |> Parser.alt (P.pstring "number" |> Parser.map (fun (_, pos) -> NumberKeywordType pos))
+    |> Parser.backtrackable
+    |> Parser.alt (P.pstring "string" |> Parser.map (fun (_, pos) -> StringKeywordType pos))
+    |> Parser.memorize
+
 let private letStmtParser =
     parser {
         let! (_, pos) = P.pstring "let" |> Parser.backtrackable
         do! P.whiteSpaces1 ()
         let! ident = identParser
+        do! P.whiteSpaces ()
+        let! _ = P.pchar ':'
+        do! P.whiteSpaces ()
+        let! ty = typeParser
         do! P.whiteSpaces ()
         let! _ = P.pchar '='
         do! P.whiteSpaces ()
@@ -196,6 +209,7 @@ let private letStmtParser =
 
         return
             { Identifier = ident
+              Type = ty
               Initializer = init
               SourcePos = pos }
     }

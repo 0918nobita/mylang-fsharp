@@ -27,10 +27,10 @@ let rec private codeGenExpression (ast: Ast.Expression) : TSTree.Expression =
             { Lhs = codeGenExpression sub.Lhs
               Rhs = codeGenExpression sub.Rhs }
 
-let codegen (ast: Ast.LetStmt[]) : TSTree.Program =
+let codegen (ast: list<Ast.LetStmt>) : TSTree.Program =
     let stmts =
         ast
-        |> Array.map (fun stmt ->
+        |> List.map (fun stmt ->
             TSTree.VariableDeclarationList
                 { LetOrConst = TSTree.Const
                   Declarations =

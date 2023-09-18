@@ -1,8 +1,8 @@
-let foo = (2 + 3) * f(x);
-let bar = 4;
-let baz = func(foo)(bar);
+let foo: number = 1 + 2;
+let bar: number = 2 * 2;
+let baz: number = foo * bar;
 
-let hoge = "Hello,";
-let fuga = "world!";
+let hoge: string = "Hello,";
+let fuga: string = "world!";
 
-let c = 'A';
+let c: char = 'A';
