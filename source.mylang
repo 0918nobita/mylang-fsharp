@@ -1,13 +1,4 @@
-let foo: number = 1 + 2;
-let bar: number = 2 * 2;
-let baz: number = foo * bar;
-
-let hoge: string = "Hello,";
-let fuga: string = "world!";
-
-let c: char = 'A';
-
-let func: fn(number, number) -> number =
-    |a: number, b: number| -> number {
-        a + b
-    };
+let foo: i32 = 1 + 2;
+let bar: i32 = 2 * 2;
+let baz: i32 = foo * bar;
+print_i32(baz);

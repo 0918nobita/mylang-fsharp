@@ -7,12 +7,15 @@
 
   <ItemGroup>
     <Compile Include="SourcePos.fs" />
-    <Compile Include="SourceCharStream.fs" />
+    <Compile Include="SourceFileReader.fs" />
     <Compile Include="Reader.fs" />
-    <Compile Include="Parser.fs" />
-    <Compile Include="ParserContext.fs" />
-    <Compile Include="ParserBuilder.fs" />
-    <Compile Include="BasicParser.fs" />
+    <Compile Include="Parser/Type.fs" />
+    <Compile Include="Parser/Context.fs" />
+    <Compile Include="Parser/Prim.fs" />
+    <Compile Include="Parser/CE.fs" />
+    <Compile Include="Parser/State.fs" />
+    <Compile Include="Parser/Combinator.fs" />
+    <Compile Include="Parser/CharParser.fs" />
     <Compile Include="Library.fs" />
   </ItemGroup>
 

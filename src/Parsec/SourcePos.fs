@@ -1,5 +1,4 @@
 /// パーサに対する入力上の位置を表すデータ
-[<AutoOpen>]
 module Parsec.SourcePos
 
 open System.Runtime.CompilerServices
@@ -22,3 +21,6 @@ module SourcePos =
         { sourcePos with
             Line = sourcePos.Line + 1
             Column = 0 }
+
+[<IsReadOnly; Struct; StructuredFormatDisplay("<{Start} - {End}>")>]
+type SourceRange = { Start: SourcePos; End: SourcePos }
