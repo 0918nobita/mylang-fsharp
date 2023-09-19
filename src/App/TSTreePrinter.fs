@@ -21,7 +21,7 @@ type Priority =
     | Add = 12
     | Sub = 12
 
-let inline private insertParen ((str, innerPriority): string * Priority) (outerPriority: Priority) =
+let inline private insertParen (outerPriority: Priority) ((str, innerPriority): string * Priority) =
     if outerPriority > innerPriority then $"(%s{str})" else str
 
 let rec private printExpression (ast: TSTree.Expression) : string * Priority =
@@ -30,12 +30,11 @@ let rec private printExpression (ast: TSTree.Expression) : string * Priority =
         let paramDecls =
             arrowFunctionExpression.Params |> List.map printIdentifier |> String.concat ", "
 
-        let body =
-            insertParen (printExpression arrowFunctionExpression.Body) Priority.ArrowFuncExpr
+        let (body, _) = printExpression arrowFunctionExpression.Body
 
-        $"({paramDecls}) => {body}", Priority.ArrowFuncExpr
+        $"((%s{paramDecls}) => %s{body})", Priority.ArrowFuncExpr
     | CallExpression callExpression ->
-        let callee = insertParen (printExpression callExpression.Callee) Priority.Funcall
+        let callee = printExpression callExpression.Callee |> insertParen Priority.Funcall
 
         let arguments =
             callExpression.Arguments
@@ -47,20 +46,20 @@ let rec private printExpression (ast: TSTree.Expression) : string * Priority =
     | NumericLiteral numericLiteral -> numericLiteral.Text, Priority.NumLit
     | StringLiteral stringLiteral -> $"\"%s{stringLiteral.Text}\"", Priority.StrLit
     | Mul mul ->
-        let lhs = insertParen (printExpression mul.Lhs) Priority.Mul
-        let rhs = insertParen (printExpression mul.Rhs) Priority.Mul
+        let lhs = printExpression mul.Lhs |> insertParen Priority.Mul
+        let rhs = printExpression mul.Rhs |> insertParen Priority.Mul
         $"%s{lhs} * %s{rhs}", Priority.Mul
     | Div div ->
-        let lhs = insertParen (printExpression div.Lhs) Priority.Div
-        let rhs = insertParen (printExpression div.Rhs) Priority.Div
+        let lhs = printExpression div.Lhs |> insertParen Priority.Div
+        let rhs = printExpression div.Rhs |> insertParen Priority.Div
         $"%s{lhs} / %s{rhs}", Priority.Div
     | Add add ->
-        let lhs = insertParen (printExpression add.Lhs) Priority.Add
-        let rhs = insertParen (printExpression add.Rhs) Priority.Add
+        let lhs = printExpression add.Lhs |> insertParen Priority.Add
+        let rhs = printExpression add.Rhs |> insertParen Priority.Add
         $"%s{lhs} + %s{rhs}", Priority.Add
     | Sub sub ->
-        let lhs = insertParen (printExpression sub.Lhs) Priority.Sub
-        let rhs = insertParen (printExpression sub.Rhs) Priority.Sub
+        let lhs = printExpression sub.Lhs |> insertParen Priority.Sub
+        let rhs = printExpression sub.Rhs |> insertParen Priority.Sub
         $"%s{lhs} - %s{rhs}", Priority.Sub
 
 let inline private printStmt (ast: TSTree.Statement) =

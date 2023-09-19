@@ -1,8 +1,10 @@
 bin
 obj
+Properties
 .fsdocs
 output
 tmp
 .vs
+.vscode/launch.json
 
 *.ts
